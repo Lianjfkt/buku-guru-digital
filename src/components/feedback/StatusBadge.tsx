@@ -58,3 +58,4 @@ export function StatusBadge({ status, size = "md", className }: StatusBadgeProps
     </span>
   );
 }
+

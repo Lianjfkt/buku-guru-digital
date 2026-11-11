@@ -26,3 +26,4 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
 );
 
 GlassCard.displayName = "GlassCard";
+

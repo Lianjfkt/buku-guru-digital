@@ -12,3 +12,4 @@ Dokumen ini mencatat keputusan desain, arsitektur, dan teknologi yang diambil se
 - **Validasi Data:** Zod pada sisi client (`react-hook-form` + `@hookform/resolvers`) dan wajib di sisi server sebelum mutasi data.
 - **Ekspor Dokumen:** `exceljs` untuk spreadsheet Excel (.xlsx) dan `jspdf` + `jspdf-autotable` untuk dokumen PDF siap cetak.
 - **Testing:** `vitest` untuk unit test (formula kalkulasi & logika bisnis) dan `playwright` untuk E2E testing alur kritis.
+

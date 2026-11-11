@@ -127,3 +127,4 @@ export function Sidebar({ role = "guru", isHomeroom = false }: SidebarProps) {
     </aside>
   );
 }
+

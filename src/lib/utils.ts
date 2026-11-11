@@ -46,3 +46,4 @@ export function formatNilai(val: number | null | undefined): string {
   if (val === null || val === undefined || isNaN(val)) return "-";
   return Number.isInteger(val) ? val.toString() : val.toFixed(1).replace(".", ",");
 }
+
