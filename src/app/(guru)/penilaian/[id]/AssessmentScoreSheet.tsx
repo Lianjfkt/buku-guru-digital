@@ -18,17 +18,16 @@ interface Student {
 
 interface AssessmentDetail {
   id: string;
-  name: string;
+  title: string;
   category: 'formatif' | 'sumatif';
-  assessment_type: string;
+  type: string;
   date: string;
   max_score: number;
-  weight: number;
   assignment_id: string;
   remedial_max_rule: 'kktp' | 'actual';
   assignment: {
     id: string;
-    kktp: number;
+    kktp_default: number;
     weight_formative: number;
     weight_summative: number;
     subject: { id: string; name: string; code: string };
@@ -42,10 +41,9 @@ interface AssessmentDetail {
   tp?: { id: string; code: string; description: string } | null;
   scores: Array<{
     student_id: string;
-    raw_score: number;
+    score: number;
     remedial_score: number | null;
-    final_score: number;
-    notes: string | null;
+    note: string | null;
   }>;
 }
 
@@ -55,22 +53,22 @@ interface Props {
 
 export default function AssessmentScoreSheet({ assessment }: Props) {
   const students = assessment.assignment.class.students || [];
-  const kktp = assessment.assignment.kktp;
+  const kktp = assessment.assignment.kktp_default;
   const remedialRule = assessment.remedial_max_rule || 'kktp';
 
-  // Map student_id -> { raw_score, remedial_score, notes }
+  // Map student_id -> { score, remedial_score, note }
   const [scoresMap, setScoresMap] = useState<
-    Record<string, { raw_score: string; remedial_score: string; notes: string }>
+    Record<string, { score: string; remedial_score: string; note: string }>
   >(() => {
-    const map: Record<string, { raw_score: string; remedial_score: string; notes: string }> = {};
+    const map: Record<string, { score: string; remedial_score: string; note: string }> = {};
     assessment.scores.forEach(s => {
       map[s.student_id] = {
-        raw_score: s.raw_score !== undefined && s.raw_score !== null ? String(s.raw_score) : '',
+        score: s.score !== undefined && s.score !== null ? String(s.score) : '',
         remedial_score:
           s.remedial_score !== undefined && s.remedial_score !== null
             ? String(s.remedial_score)
             : '',
-        notes: s.notes || '',
+        note: s.note || '',
       };
     });
     return map;
@@ -81,13 +79,13 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
 
   const handleScoreChange = (
     studentId: string,
-    field: 'raw_score' | 'remedial_score' | 'notes',
+    field: 'score' | 'remedial_score' | 'note',
     val: string
   ) => {
     setScoresMap(prev => ({
       ...prev,
       [studentId]: {
-        ...(prev[studentId] || { raw_score: '', remedial_score: '', notes: '' }),
+        ...(prev[studentId] || { score: '', remedial_score: '', note: '' }),
         [field]: val,
       },
     }));
@@ -97,20 +95,20 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
     setMessage(null);
     const payload: Array<{
       student_id: string;
-      raw_score: number;
+      score: number;
       remedial_score?: number | null;
-      notes?: string | null;
+      note?: string | null;
     }> = [];
 
     for (const [student_id, val] of Object.entries(scoresMap)) {
-      if (val.raw_score.trim() === '') continue; // lewati yang kosong
-      const raw = Number(val.raw_score);
+      if (val.score.trim() === '') continue; // lewati yang kosong
+      const raw = Number(val.score);
       const rem = val.remedial_score.trim() !== '' ? Number(val.remedial_score) : null;
       payload.push({
         student_id,
-        raw_score: raw,
+        score: raw,
         remedial_score: rem,
-        notes: val.notes || null,
+        note: val.note || null,
       });
     }
 
@@ -146,7 +144,7 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
             ← Kembali ke Asesmen {assessment.assignment.subject.name}
           </Link>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            {assessment.name}
+            {assessment.title}
           </h1>
           <div className="flex flex-wrap items-center gap-3 text-xs text-white/60 mt-1">
             <span>📅 {formatTanggal(assessment.date)}</span>
@@ -207,8 +205,8 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
           </thead>
           <tbody className="divide-y divide-white/5">
             {students.map((st, idx) => {
-              const current = scoresMap[st.id] || { raw_score: '', remedial_score: '', notes: '' };
-              const rawNum = current.raw_score !== '' ? Number(current.raw_score) : null;
+              const current = scoresMap[st.id] || { score: '', remedial_score: '', note: '' };
+              const rawNum = current.score !== '' ? Number(current.score) : null;
               const remNum = current.remedial_score !== '' ? Number(current.remedial_score) : null;
 
               const finalScore =
@@ -229,8 +227,8 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
                       type="number"
                       min={0}
                       max={assessment.max_score}
-                      value={current.raw_score}
-                      onChange={e => handleScoreChange(st.id, 'raw_score', e.target.value)}
+                      value={current.score}
+                      onChange={e => handleScoreChange(st.id, 'score', e.target.value)}
                       placeholder="0-100"
                       className={`w-20 text-center py-1 px-2 rounded bg-white/5 border text-xs focus:outline-none focus:border-white/40 font-semibold ${
                         isUnderKKTP ? 'border-rose-500/50 text-rose-300' : 'border-white/10 text-white'
@@ -244,8 +242,7 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
                       max={assessment.max_score}
                       disabled={!isUnderKKTP && !current.remedial_score}
                       value={current.remedial_score}
-                      onChange={e => handleScoreChange(st.id, 'remedial_score', e.target.value)}
-                      placeholder={isUnderKKTP ? 'Remedi' : '-'}
+                      onChange={e => handleScoreChange(st.id, 'remedial_score', e.target.value)}                      placeholder={isUnderKKTP ? 'Remedi' : '-'}
                       className={`w-20 text-center py-1 px-2 rounded bg-white/5 border text-xs focus:outline-none focus:border-white/40 font-semibold ${
                         !isUnderKKTP && !current.remedial_score
                           ? 'opacity-40 cursor-not-allowed border-transparent'
@@ -284,8 +281,8 @@ export default function AssessmentScoreSheet({ assessment }: Props) {
                   <td className="py-2 px-3">
                     <input
                       type="text"
-                      value={current.notes}
-                      onChange={e => handleScoreChange(st.id, 'notes', e.target.value)}
+                      value={current.note}
+                      onChange={e => handleScoreChange(st.id, 'note', e.target.value)}
                       placeholder="Catatan perkembangan..."
                       className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-white/30"
                     />

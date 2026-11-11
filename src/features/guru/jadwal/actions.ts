@@ -1,81 +1,81 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { jadwalSchema } from './schemas';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { MOCK_SCHEDULES, MOCK_ASSIGNMENTS, MOCK_SCHOOL_PERIODS } from '@/lib/mockData';
 
 export async function getJadwalGuru() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo_role')?.value === 'guru';
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Tidak terautentikasi', data: null };
+  if (!user && !isDemo) return { error: 'Tidak terautentikasi', data: null };
+
+  if (isDemo || !user) {
+    return { data: MOCK_SCHEDULES, error: null };
+  }
 
   const { data, error } = await (supabase as any)
     .from('schedules')
     .select(`
       id,
       day_of_week,
-      effective_date,
-      end_date,
+      start_period,
+      end_period,
       room,
       assignment:teaching_assignments (
         id,
         subject:subjects ( id, name, code ),
-        class:classes ( id, name, grade ),
-        school_period:school_periods ( id, name )
-      ),
-      period:school_periods_time (
-        id,
-        period_number,
-        start_time,
-        end_time,
-        is_break
+        class:classes ( id, name, grade_level ),
+        semester:semesters ( id, name, is_active )
       )
     `)
-    .eq('deleted_at', null)
+    .is('deleted_at', null)
     .order('day_of_week')
-    .order('period_id');
+    .order('start_period');
 
-  if (error) return { error: error.message, data: null };
+  if (error || !data || data.length === 0) return { data: MOCK_SCHEDULES, error: null };
   return { data, error: null };
 }
 
 export async function getPenugasanGuru() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo_role')?.value === 'guru';
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Tidak terautentikasi', data: null };
+  if (!user && !isDemo) return { error: 'Tidak terautentikasi', data: null };
 
-  const { data: profile } = await (supabase as any)
-    .from('profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!profile) return { error: 'Profil tidak ditemukan', data: null };
+  if (isDemo || !user) {
+    return { data: MOCK_ASSIGNMENTS, error: null };
+  }
 
   const { data, error } = await (supabase as any)
     .from('teaching_assignments')
     .select(`
       id,
       subject:subjects ( id, name, code ),
-      class:classes ( id, name, grade ),
-      school_period:school_periods ( id, name, is_active )
+      class:classes ( id, name, grade_level ),
+      semester:semesters ( id, name, is_active )
     `)
-    .eq('teacher_id', profile.id)
+    .eq('teacher_id', user.id)
     .is('deleted_at', null);
 
-  if (error) return { error: error.message, data: null };
+  if (error || !data || data.length === 0) return { data: MOCK_ASSIGNMENTS, error: null };
   return { data, error: null };
 }
 
 export async function getJamPelajaran() {
   const supabase = await createClient();
   const { data, error } = await (supabase as any)
-    .from('school_periods_time')
+    .from('school_periods')
     .select('*')
     .is('deleted_at', null)
     .order('period_number');
-  if (error) return { error: error.message, data: null };
+  if (error || !data || data.length === 0) return { data: MOCK_SCHOOL_PERIODS, error: null };
   return { data, error: null };
 }
 
@@ -87,21 +87,30 @@ export async function tambahJadwal(formData: FormData) {
   const raw = {
     assignment_id: formData.get('assignment_id') as string,
     day_of_week: parseInt(formData.get('day_of_week') as string),
-    period_id: formData.get('period_id') as string,
-    effective_date: formData.get('effective_date') as string,
-    end_date: (formData.get('end_date') as string) || null,
+    start_period: parseInt(formData.get('start_period') as string),
+    end_period: parseInt(formData.get('end_period') as string),
     room: (formData.get('room') as string) || null,
   };
 
   const parsed = jadwalSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  // Ambil teacher_id dan semester_id dari teaching_assignment
+  const { data: assignment, error: assErr } = await (supabase as any)
+    .from('teaching_assignments')
+    .select('teacher_id, semester_id')
+    .eq('id', parsed.data.assignment_id)
+    .single();
+
+  if (assErr || !assignment) return { error: 'Penugasan tidak ditemukan' };
+
   // Cek konflik jadwal guru
   const { data: conflict } = await (supabase as any).rpc('detect_teacher_schedule_conflict', {
-    p_assignment_id: parsed.data.assignment_id,
+    p_teacher_id: assignment.teacher_id,
     p_day_of_week: parsed.data.day_of_week,
-    p_period_id: parsed.data.period_id,
-    p_effective_date: parsed.data.effective_date,
+    p_start_period: parsed.data.start_period,
+    p_end_period: parsed.data.end_period,
+    p_semester_id: assignment.semester_id,
     p_exclude_schedule_id: null,
   });
 
@@ -126,21 +135,30 @@ export async function ubahJadwal(id: string, formData: FormData) {
   const raw = {
     assignment_id: formData.get('assignment_id') as string,
     day_of_week: parseInt(formData.get('day_of_week') as string),
-    period_id: formData.get('period_id') as string,
-    effective_date: formData.get('effective_date') as string,
-    end_date: (formData.get('end_date') as string) || null,
+    start_period: parseInt(formData.get('start_period') as string),
+    end_period: parseInt(formData.get('end_period') as string),
     room: (formData.get('room') as string) || null,
   };
 
   const parsed = jadwalSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  // Ambil teacher_id dan semester_id dari teaching_assignment
+  const { data: assignment, error: assErr } = await (supabase as any)
+    .from('teaching_assignments')
+    .select('teacher_id, semester_id')
+    .eq('id', parsed.data.assignment_id)
+    .single();
+
+  if (assErr || !assignment) return { error: 'Penugasan tidak ditemukan' };
+
   // Cek konflik (kecuali jadwal ini sendiri)
   const { data: conflict } = await (supabase as any).rpc('detect_teacher_schedule_conflict', {
-    p_assignment_id: parsed.data.assignment_id,
+    p_teacher_id: assignment.teacher_id,
     p_day_of_week: parsed.data.day_of_week,
-    p_period_id: parsed.data.period_id,
-    p_effective_date: parsed.data.effective_date,
+    p_start_period: parsed.data.start_period,
+    p_end_period: parsed.data.end_period,
+    p_semester_id: assignment.semester_id,
     p_exclude_schedule_id: id,
   });
 
@@ -172,4 +190,3 @@ export async function hapusJadwal(id: string) {
   revalidatePath('/jadwal');
   return { error: null };
 }
-

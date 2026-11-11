@@ -55,7 +55,7 @@ export default function PeriodeClient({ periods }: Props) {
     }
 
     setIsPending(true);
-    const res = await deletePeriodDataAction(period.id);
+    const res = await deletePeriodDataAction(period.id, confirmName);
     setIsPending(false);
     if (res.error) {
       alert(res.error);

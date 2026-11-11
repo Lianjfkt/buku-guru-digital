@@ -409,3 +409,174 @@ export async function saveSettingsAction(input: AppSettingsInput): Promise<Admin
   revalidatePath("/admin/pengaturan");
   return { ok: true };
 }
+
+import {
+  MOCK_GURU,
+  MOCK_KELAS,
+  MOCK_SUBJECTS,
+  MOCK_SCHOOL_PERIODS,
+  MOCK_HOLIDAYS,
+  MOCK_STUDENTS,
+  MOCK_ASSIGNMENTS,
+  MOCK_SEMESTER,
+  MOCK_SETTINGS,
+} from "@/lib/mockData";
+
+// -----------------------------------------------------------------------------
+// 9. DATA FETCHING GETTERS FOR ADMIN
+// -----------------------------------------------------------------------------
+export async function getGuruList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("profiles")
+    .select("id, email, full_name, nip, role, is_active, created_at")
+    .is("deleted_at", null)
+    .order("full_name");
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_GURU };
+  return { ok: true, data };
+}
+
+export async function getKelasList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("classes")
+    .select(`
+      id,
+      name,
+      grade_level,
+      phase,
+      homeroom_teacher_id,
+      homeroom_teacher:profiles!homeroom_teacher_id ( id, full_name )
+    `)
+    .is("deleted_at", null)
+    .order("grade_level")
+    .order("name");
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_KELAS };
+  return { ok: true, data };
+}
+
+export async function getSubjectList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("subjects")
+    .select("id, name, code")
+    .is("deleted_at", null)
+    .order("name");
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_SUBJECTS };
+  return { ok: true, data };
+}
+
+export async function getSchoolPeriodList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("school_periods")
+    .select("id, period_number, start_time, end_time, is_break")
+    .is("deleted_at", null)
+    .order("period_number");
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_SCHOOL_PERIODS };
+  return { ok: true, data };
+}
+
+export async function getHolidayList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("holidays")
+    .select("id, name, date, is_national_holiday")
+    .order("date");
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_HOLIDAYS };
+  return { ok: true, data };
+}
+
+export async function getSiswaList(classId?: string) {
+  const supabase = await createClient();
+  let query = (supabase as any)
+    .from("students")
+    .select(`
+      id,
+      nis,
+      nisn,
+      full_name,
+      gender,
+      class_id,
+      is_active,
+      class:classes ( id, name )
+    `)
+    .is("deleted_at", null)
+    .order("full_name");
+
+  if (classId) {
+    query = query.eq("class_id", classId);
+  }
+
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_STUDENTS };
+  return { ok: true, data };
+}
+
+export async function getAssignmentList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("teaching_assignments")
+    .select(`
+      id,
+      teacher_id,
+      class_id,
+      subject_id,
+      semester_id,
+      weight_formative,
+      weight_summative,
+      kktp_default,
+      teacher:profiles!teacher_id ( id, full_name ),
+      class:classes!class_id ( id, name, grade_level ),
+      subject:subjects!subject_id ( id, name, code ),
+      semester:semesters!semester_id ( id, name, is_active )
+    `)
+    .is("deleted_at", null);
+  if (error || !data || data.length === 0) return { ok: true, data: MOCK_ASSIGNMENTS };
+  return { ok: true, data };
+}
+
+export async function getSemestersList() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("semesters")
+    .select("id, name, is_active, start_date, end_date")
+    .is("deleted_at", null)
+    .order("start_date", { ascending: false });
+  if (error || !data || data.length === 0) return { ok: true, data: [MOCK_SEMESTER] };
+  return { ok: true, data };
+}
+
+export async function getAppSettingsAction() {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from("app_settings")
+    .select("*")
+    .limit(1)
+    .single();
+  if (error || !data) return { ok: true, data: MOCK_SETTINGS };
+  return { ok: true, data };
+}
+
+export async function getAdminDashboardStats() {
+  const supabase = await createClient();
+  const [
+    { count: guruCount },
+    { count: siswaCount },
+    { count: kelasCount },
+    { count: mapelCount },
+  ] = await Promise.all([
+    (supabase as any).from("profiles").select("*", { count: "exact", head: true }).is("deleted_at", null),
+    (supabase as any).from("students").select("*", { count: "exact", head: true }).is("deleted_at", null),
+    (supabase as any).from("classes").select("*", { count: "exact", head: true }).is("deleted_at", null),
+    (supabase as any).from("subjects").select("*", { count: "exact", head: true }).is("deleted_at", null),
+  ]);
+
+  return {
+    guruCount: guruCount || 4,
+    siswaCount: siswaCount || 40,
+    kelasCount: kelasCount || 3,
+    mapelCount: mapelCount || 4,
+  };
+}
+

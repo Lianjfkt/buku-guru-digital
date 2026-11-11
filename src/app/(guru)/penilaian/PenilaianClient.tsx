@@ -12,22 +12,22 @@ import { createAssessment } from '@/features/guru/penilaian/actions';
 
 interface Assessment {
   id: string;
-  name: string;
+  title: string;
   category: 'formatif' | 'sumatif';
-  assessment_type: string;
+  type: string;
   date: string;
   max_score: number;
-  weight: number;
   tp?: { id: string; code: string; description: string } | null;
 }
 
 interface Assignment {
   id: string;
-  kktp: number;
+  kktp?: number;
+  kktp_default?: number;
   weight_formative: number;
   weight_summative: number;
   subject: { id: string; name: string; code: string };
-  class: { id: string; name: string; grade: number };
+  class: { id: string; name: string; grade?: number };
 }
 
 interface Props {
@@ -117,7 +117,7 @@ export default function PenilaianClient({
             <div className="text-center">
               <div className="text-xs text-white/60">KKTP</div>
               <div className="text-xl font-bold text-emerald-400 mt-0.5">
-                {selectedAssignment.kktp}
+                {selectedAssignment.kktp_default ?? selectedAssignment.kktp ?? 75}
               </div>
             </div>
             <div className="h-8 w-px bg-white/10" />
@@ -192,12 +192,12 @@ export default function PenilaianClient({
                         : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                     }`}
                   >
-                    {item.category} • {item.assessment_type}
+                    {item.category} • {item.type}
                   </span>
                   <span className="text-xs text-white/50">📅 {formatTanggal(item.date)}</span>
                 </div>
 
-                <h3 className="font-semibold text-white text-base line-clamp-1">{item.name}</h3>
+                <h3 className="font-semibold text-white text-base line-clamp-1">{item.title}</h3>
 
                 {item.tp && (
                   <p className="text-xs text-emerald-300 line-clamp-1">
@@ -207,8 +207,6 @@ export default function PenilaianClient({
 
                 <div className="text-xs text-white/60 flex items-center gap-3 pt-1">
                   <span>Skor Maks: <strong>{item.max_score}</strong></span>
-                  <span>•</span>
-                  <span>Bobot: <strong>{item.weight}x</strong></span>
                 </div>
               </div>
 
@@ -234,7 +232,7 @@ export default function PenilaianClient({
           <div>
             <label className="text-xs text-white/70 block mb-1">Nama Asesmen *</label>
             <GlassInput
-              name="name"
+              name="title"
               required
               placeholder="Contoh: Tes Formatif 1 - Pola Bilangan"
             />
@@ -250,7 +248,7 @@ export default function PenilaianClient({
             </div>
             <div>
               <label className="text-xs text-white/70 block mb-1">Jenis Asesmen *</label>
-              <GlassSelect name="assessment_type" required defaultValue="SLM">
+              <GlassSelect name="type" required defaultValue="SLM">
                 <option value="SLM">Sumatif Lingkup Materi (SLM)</option>
                 <option value="SAS">Sumatif Akhir Semester (SAS)</option>
                 <option value="SAT">Sumatif Akhir Tahun (SAT)</option>
@@ -259,7 +257,7 @@ export default function PenilaianClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-white/70 block mb-1">Tanggal *</label>
               <GlassInput type="date" name="date" required defaultValue={new Date().toISOString().split('T')[0]} />
@@ -267,10 +265,6 @@ export default function PenilaianClient({
             <div>
               <label className="text-xs text-white/70 block mb-1">Skor Maksimal</label>
               <GlassInput type="number" name="max_score" defaultValue="100" min="1" max="100" />
-            </div>
-            <div>
-              <label className="text-xs text-white/70 block mb-1">Bobot</label>
-              <GlassInput type="number" name="weight" defaultValue="1" min="1" />
             </div>
           </div>
 

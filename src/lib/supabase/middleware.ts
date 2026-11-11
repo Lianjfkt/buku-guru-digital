@@ -96,7 +96,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Proteksi Rute Admin: Hanya peran admin yang boleh membuka /admin/*
-    if (pathname.startsWith("/admin") && profile && profile.role !== "admin") {
+    if (pathname.startsWith("/admin") && profile?.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

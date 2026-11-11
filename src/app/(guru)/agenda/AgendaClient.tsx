@@ -16,12 +16,12 @@ interface AgendaItem {
   topic: string;
   activity: string | null;
   reflection: string | null;
-  status: 'dijadwalkan' | 'terlaksana' | 'tidak_terlaksana';
+  status: 'Dijadwalkan' | 'Terlaksana' | 'Tidak Terlaksana' | string;
   not_held_reason: string | null;
   assignment: {
     id: string;
     subject: { id: string; name: string; code: string };
-    class: { id: string; name: string; grade: number };
+    class: { id: string; name: string; grade?: number };
   };
   tp?: { id: string; code: string; description: string } | null;
 }
@@ -29,8 +29,9 @@ interface AgendaItem {
 interface AssignmentItem {
   id: string;
   subject: { id: string; name: string; code: string };
-  class: { id: string; name: string; grade: number };
-  school_period: { id: string; name: string; is_active: boolean };
+  class: { id: string; name: string; grade?: number };
+  semester?: { id: string; name: string; is_active: boolean };
+  school_period?: { id: string; name: string; is_active: boolean };
 }
 
 interface Props {
@@ -65,14 +66,13 @@ export default function AgendaClient({ initialAgendas, penugasanList }: Props) {
     return 'Dijadwalkan';
   };
 
-  const activePeriod = penugasanList[0]?.school_period;
+  const activePeriod = penugasanList[0]?.semester || penugasanList[0]?.school_period;
 
   const handleGenerate = async () => {
-    if (!activePeriod?.id) return;
-    if (!confirm(`Generate agenda otomatis dari jadwal untuk periode ${activePeriod.name}?`)) return;
+    if (!confirm('Generate agenda otomatis dari jadwal untuk semester aktif?')) return;
     setIsGenerating(true);
     setGenMessage('');
-    const res = await generateAgendasOtomatis(activePeriod.id);
+    const res = await generateAgendasOtomatis(selectedAssignment === 'all' ? undefined : selectedAssignment);
     setIsGenerating(false);
     if (res.error) {
       alert(`Gagal generate agenda: ${res.error}`);

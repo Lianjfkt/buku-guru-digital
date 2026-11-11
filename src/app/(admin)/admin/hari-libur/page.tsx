@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { saveHolidayAction, deleteHolidayAction } from "@/features/admin/actions";
+import { saveHolidayAction, deleteHolidayAction, getHolidayList } from "@/features/admin/actions";
 import { formatTanggal } from "@/lib/utils";
 import { toast } from "sonner";
 import { CalendarDays, Plus, Edit2, Trash2 } from "lucide-react";
@@ -26,11 +25,21 @@ export default function AdminHariLiburPage() {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const [holidayList, setHolidayList] = useState<HolidayItem[]>([
-    { id: "1", date: "2026-08-17", name: "Hari Kemerdekaan RI Ke-81" },
-    { id: "2", date: "2026-10-08", name: "Maulid Nabi Muhammad SAW" },
-    { id: "3", date: "2026-12-25", name: "Hari Raya Natal" },
-  ]);
+  const [holidayList, setHolidayList] = useState<HolidayItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  const loadData = async () => {
+    setLoadingData(true);
+    const res = await getHolidayList();
+    if (res.ok && res.data) {
+      setHolidayList(res.data);
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleOpenAdd = () => {
     setSelectedHoliday(null);
@@ -64,20 +73,11 @@ export default function AdminHariLiburPage() {
     }
 
     if (selectedHoliday) {
-      setHolidayList((prev) =>
-        prev.map((h) => (h.id === selectedHoliday.id ? { ...h, date, name } : h))
-      );
       toast.success("Hari libur berhasil diperbarui");
     } else {
-      const newH: HolidayItem = {
-        id: crypto.randomUUID(),
-        date,
-        name,
-      };
-      setHolidayList((prev) => [...prev, newH]);
       toast.success("Hari libur baru berhasil ditambahkan");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -88,13 +88,12 @@ export default function AdminHariLiburPage() {
       toast.error("Gagal menghapus hari libur");
       return;
     }
-    setHolidayList((prev) => prev.filter((h) => h.id !== id));
+    await loadData();
     toast.success("Hari libur dihapus");
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -185,7 +184,6 @@ export default function AdminHariLiburPage() {
           </form>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

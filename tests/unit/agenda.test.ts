@@ -9,7 +9,7 @@ describe('Agenda & Presensi Schemas', () => {
       topic: 'Pengantar Aljabar Linear',
       activity: 'Diskusi kelompok dan pemecahan masalah',
       reflection: 'Siswa antusias dan memahami konsep dasar',
-      status: 'terlaksana',
+      status: 'Terlaksana',
     };
     const res = agendaSchema.safeParse(valid);
     expect(res.success).toBe(true);
@@ -20,7 +20,7 @@ describe('Agenda & Presensi Schemas', () => {
       assignment_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       date: '2026-08-10',
       topic: 'Pengantar Aljabar Linear',
-      status: 'tidak_terlaksana',
+      status: 'Tidak Terlaksana',
       not_held_reason: null,
     };
     const res = agendaSchema.safeParse(invalid);

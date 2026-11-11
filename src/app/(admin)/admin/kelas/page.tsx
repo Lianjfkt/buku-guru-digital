@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { saveClassAction, deleteClassAction } from "@/features/admin/actions";
+import { saveClassAction, deleteClassAction, getKelasList, getGuruList } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { Building, Plus, Edit2, Trash2, GraduationCap } from "lucide-react";
 
@@ -32,40 +31,39 @@ export default function AdminKelasPage() {
   const [homeroomId, setHomeroomId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Data Simulasi
-  const guruOptions = [
+  const [guruOptions, setGuruOptions] = useState<{ value: string; label: string }[]>([
     { value: "", label: "-- Belum Ditentukan --" },
-    { value: "22222222-2222-2222-2222-222222222222", label: "Bu Rina Wulandari, S.Pd." },
-    { value: "33333333-3333-3333-3333-333333333333", label: "Pak Ahmad Fauzi, M.Kom." },
-    { value: "44444444-4444-4444-4444-444444444444", label: "Bu Sari Rahayu, M.Pd." },
-  ];
-
-  const [classList, setClassList] = useState<ClassItem[]>([
-    {
-      id: "d0000000-0000-0000-0000-000000000001",
-      name: "X-A",
-      grade_level: 10,
-      phase: "E",
-      homeroom_teacher_id: "22222222-2222-2222-2222-222222222222",
-      homeroom_teacher_name: "Bu Rina Wulandari, S.Pd.",
-    },
-    {
-      id: "d0000000-0000-0000-0000-000000000002",
-      name: "X-B",
-      grade_level: 10,
-      phase: "E",
-      homeroom_teacher_id: "44444444-4444-4444-4444-444444444444",
-      homeroom_teacher_name: "Bu Sari Rahayu, M.Pd.",
-    },
-    {
-      id: "d0000000-0000-0000-0000-000000000003",
-      name: "XI-IPA-1",
-      grade_level: 11,
-      phase: "F",
-      homeroom_teacher_id: null,
-      homeroom_teacher_name: null,
-    },
   ]);
+  const [classList, setClassList] = useState<ClassItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  const loadData = async () => {
+    setLoadingData(true);
+    const [cRes, gRes] = await Promise.all([getKelasList(), getGuruList()]);
+    if (cRes.ok && cRes.data) {
+      setClassList(
+        cRes.data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          grade_level: c.grade_level,
+          phase: c.phase,
+          homeroom_teacher_id: c.homeroom_teacher_id,
+          homeroom_teacher_name: c.homeroom_teacher?.full_name || null,
+        }))
+      );
+    }
+    if (gRes.ok && gRes.data) {
+      setGuruOptions([
+        { value: "", label: "-- Belum Ditentukan --" },
+        ...gRes.data.map((g: any) => ({ value: g.id, label: g.full_name })),
+      ]);
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleOpenAdd = () => {
     setSelectedClass(null);
@@ -104,37 +102,12 @@ export default function AdminKelasPage() {
       return;
     }
 
-    const teacherName = guruOptions.find((g) => g.value === homeroomId)?.label || null;
-
     if (selectedClass) {
-      setClassList((prev) =>
-        prev.map((c) =>
-          c.id === selectedClass.id
-            ? {
-                ...c,
-                name,
-                grade_level: gradeLevel,
-                phase,
-                homeroom_teacher_id: homeroomId || null,
-                homeroom_teacher_name: teacherName === "-- Belum Ditentukan --" ? null : teacherName,
-              }
-            : c
-        )
-      );
       toast.success("Data kelas berhasil diperbarui");
     } else {
-      const newC: ClassItem = {
-        id: crypto.randomUUID(),
-        name,
-        grade_level: gradeLevel,
-        phase,
-        homeroom_teacher_id: homeroomId || null,
-        homeroom_teacher_name: teacherName === "-- Belum Ditentukan --" ? null : teacherName,
-      };
-      setClassList((prev) => [...prev, newC]);
       toast.success("Kelas baru berhasil dibuat");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -145,13 +118,12 @@ export default function AdminKelasPage() {
       toast.error("Gagal menghapus kelas");
       return;
     }
-    setClassList((prev) => prev.filter((c) => c.id !== id));
+    await loadData();
     toast.success("Kelas berhasil dihapus");
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -290,7 +262,6 @@ export default function AdminKelasPage() {
           </form>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

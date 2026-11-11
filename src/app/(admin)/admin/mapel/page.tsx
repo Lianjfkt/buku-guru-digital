@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { saveSubjectAction, deleteSubjectAction } from "@/features/admin/actions";
+import { saveSubjectAction, deleteSubjectAction, getSubjectList } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { BookOpen, Plus, Edit2, Trash2 } from "lucide-react";
 
@@ -25,12 +24,21 @@ export default function AdminMapelPage() {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const [subjectList, setSubjectList] = useState<SubjectItem[]>([
-    { id: "c0000000-0000-0000-0000-000000000001", name: "Informatika", code: "INF" },
-    { id: "c0000000-0000-0000-0000-000000000002", name: "Matematika", code: "MAT" },
-    { id: "c0000000-0000-0000-0000-000000000003", name: "Bahasa Indonesia", code: "BIN" },
-    { id: "c0000000-0000-0000-0000-000000000004", name: "Bahasa Inggris", code: "BIG" },
-  ]);
+  const [subjectList, setSubjectList] = useState<SubjectItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  const loadData = async () => {
+    setLoadingData(true);
+    const res = await getSubjectList();
+    if (res.ok && res.data) {
+      setSubjectList(res.data);
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleOpenAdd = () => {
     setSelectedSubject(null);
@@ -64,20 +72,11 @@ export default function AdminMapelPage() {
     }
 
     if (selectedSubject) {
-      setSubjectList((prev) =>
-        prev.map((s) => (s.id === selectedSubject.id ? { ...s, name, code: code.toUpperCase() } : s))
-      );
       toast.success("Mata pelajaran diperbarui");
     } else {
-      const newS: SubjectItem = {
-        id: crypto.randomUUID(),
-        name,
-        code: code.toUpperCase(),
-      };
-      setSubjectList((prev) => [...prev, newS]);
       toast.success("Mata pelajaran baru ditambahkan");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -88,13 +87,12 @@ export default function AdminMapelPage() {
       toast.error("Gagal menghapus mata pelajaran");
       return;
     }
-    setSubjectList((prev) => prev.filter((s) => s.id !== id));
+    await loadData();
     toast.success("Mata pelajaran dihapus");
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -187,7 +185,6 @@ export default function AdminMapelPage() {
           </form>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

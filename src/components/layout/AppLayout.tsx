@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { MobileNav } from "./MobileNav";
 import { Toaster } from "sonner";
+import { logoutAction } from "@/features/auth/actions";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -25,13 +26,13 @@ export function AppLayout({
   semesterName = "Ganjil 2026/2027",
   onLogout,
 }: AppLayoutProps) {
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Bersihkan cookie demo
     document.cookie = "demo_role=; path=/; max-age=0";
     if (onLogout) {
       onLogout();
     } else {
-      window.location.href = "/login";
+      await logoutAction();
     }
   };
 

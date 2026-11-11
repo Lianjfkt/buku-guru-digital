@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { saveGuruAction, toggleGuruStatusAction, resetGuruPasswordAction } from "@/features/admin/actions";
+import { saveGuruAction, toggleGuruStatusAction, resetGuruPasswordAction, getGuruList } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { UserPlus, Search, Edit2, Key, ShieldCheck } from "lucide-react";
 
@@ -36,41 +35,21 @@ export default function AdminGuruPage() {
   const [resetPasswordVal, setResetPasswordVal] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Data Dummy Simulasi
-  const [guruList, setGuruList] = useState<GuruItem[]>([
-    {
-      id: "11111111-1111-1111-1111-111111111111",
-      full_name: "Pak Dedi (Administrator)",
-      nip: "198005122005011003",
-      email: "admin@sekolah.sch.id",
-      role: "admin",
-      is_active: true,
-    },
-    {
-      id: "22222222-2222-2222-2222-222222222222",
-      full_name: "Bu Rina Wulandari, S.Pd.",
-      nip: "198503202009022001",
-      email: "rina.wulandari@gmail.com",
-      role: "guru",
-      is_active: true,
-    },
-    {
-      id: "33333333-3333-3333-3333-333333333333",
-      full_name: "Pak Ahmad Fauzi, M.Kom.",
-      nip: "198711152010011004",
-      email: "ahmad.fauzi@gmail.com",
-      role: "guru",
-      is_active: true,
-    },
-    {
-      id: "44444444-4444-4444-4444-444444444444",
-      full_name: "Bu Sari Rahayu, M.Pd.",
-      nip: "198207102008012006",
-      email: "sari.rahayu@gmail.com",
-      role: "guru",
-      is_active: false,
-    },
-  ]);
+  const [guruList, setGuruList] = useState<GuruItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  const loadData = async () => {
+    setLoadingData(true);
+    const res = await getGuruList();
+    if (res.ok && res.data) {
+      setGuruList(res.data as any);
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filtered = guruList.filter(
     (g) =>
@@ -121,27 +100,11 @@ export default function AdminGuruPage() {
     }
 
     if (selectedGuru) {
-      setGuruList((prev) =>
-        prev.map((g) =>
-          g.id === selectedGuru.id
-            ? { ...g, full_name: fullName, email, nip: nip || null, role }
-            : g
-        )
-      );
       toast.success("Data guru berhasil diperbarui");
     } else {
-      const newG: GuruItem = {
-        id: crypto.randomUUID(),
-        full_name: fullName,
-        email,
-        nip: nip || null,
-        role,
-        is_active: true,
-      };
-      setGuruList((prev) => [...prev, newG]);
       toast.success("Akun guru berhasil dibuat");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -152,9 +115,7 @@ export default function AdminGuruPage() {
       toast.error("Gagal mengubah status akun");
       return;
     }
-    setGuruList((prev) =>
-      prev.map((g) => (g.id === guru.id ? { ...g, is_active: nextStatus } : g))
-    );
+    await loadData();
     toast.success(nextStatus ? "Akun diaktifkan kembali" : "Akun dinonaktifkan");
   };
 
@@ -175,8 +136,7 @@ export default function AdminGuruPage() {
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -373,7 +333,6 @@ export default function AdminGuruPage() {
           </div>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

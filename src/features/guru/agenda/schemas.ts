@@ -6,11 +6,11 @@ export const agendaSchema = z.object({
   topic: z.string().min(3, 'Materi minimal 3 karakter').max(200, 'Materi maksimal 200 karakter'),
   activity: z.string().max(1000, 'Kegiatan maksimal 1000 karakter').optional().nullable(),
   reflection: z.string().max(1000, 'Refleksi maksimal 1000 karakter').optional().nullable(),
-  status: z.enum(['dijadwalkan', 'terlaksana', 'tidak_terlaksana']),
+  status: z.enum(['Dijadwalkan', 'Terlaksana', 'Tidak Terlaksana']),
   not_held_reason: z.string().max(255).optional().nullable(),
   tp_id: z.string().uuid('ID TP tidak valid').optional().nullable(),
 }).refine(data => {
-  if (data.status === 'tidak_terlaksana' && !data.not_held_reason) {
+  if (data.status === 'Tidak Terlaksana' && !data.not_held_reason) {
     return false;
   }
   return true;

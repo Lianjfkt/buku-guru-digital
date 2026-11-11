@@ -37,8 +37,7 @@ interface Props {
   classes: Array<{
     id: string;
     name: string;
-    grade: number;
-    school_period: { id: string; name: string };
+    grade_level?: number;
     students: Student[];
   }>;
   selectedClassId: string;
@@ -76,7 +75,6 @@ export default function WaliKelasClient({
     e.preventDefault();
     setIsPending(true);
     const fd = new FormData(e.currentTarget);
-    fd.append('class_id', currentClassId);
     const res = await addStudentNote(fd);
     setIsPending(false);
     if (res.error) {
@@ -132,7 +130,7 @@ export default function WaliKelasClient({
           >
             {classes.map(c => (
               <option key={c.id} value={c.id}>
-                Kelas {c.name} ({c.school_period.name}) - {c.students.length} Siswa
+                Kelas {c.name} - {c.students.length} Siswa
               </option>
             ))}
           </GlassSelect>
@@ -281,11 +279,6 @@ export default function WaliKelasClient({
                     <p className="text-xs text-white/80 bg-white/5 p-2.5 rounded-lg border border-white/5">
                       {n.note}
                     </p>
-                    {n.follow_up && (
-                      <div className="text-xs text-emerald-300">
-                        <strong>Tindak Lanjut:</strong> {n.follow_up}
-                      </div>
-                    )}
                   </GlassCard>
                 );
               })
@@ -316,13 +309,11 @@ export default function WaliKelasClient({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-white/70 block mb-1">Kategori *</label>
-              <GlassSelect name="category" required defaultValue="karakter">
-                <option value="karakter">Karakter / Sikap</option>
+              <GlassSelect name="category" required defaultValue="akademik">
                 <option value="akademik">Akademik</option>
-                <option value="kehadiran">Kehadiran</option>
+                <option value="sikap">Sikap</option>
+                <option value="perilaku">Perilaku</option>
                 <option value="prestasi">Prestasi</option>
-                <option value="ekskul">Ekstrakurikuler</option>
-                <option value="lainnya">Lainnya</option>
               </GlassSelect>
             </div>
             <div>
@@ -343,16 +334,6 @@ export default function WaliKelasClient({
               required
               rows={3}
               placeholder="Deskripsi observasi atau kejadian..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-white/30"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-white/70 block mb-1">Rencana Tindak Lanjut (opsional)</label>
-            <textarea
-              name="follow_up"
-              rows={2}
-              placeholder="Contoh: Konseling dengan Guru BK, pembinaan..."
               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-white/30"
             />
           </div>

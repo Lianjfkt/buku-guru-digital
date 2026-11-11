@@ -15,7 +15,7 @@ type Penugasan = {
   id: string;
   subject: { id: string; name: string; code: string };
   class: { id: string; name: string; grade: number };
-  school_period: { id: string; name: string; is_active: boolean };
+  semester: { id: string; name: string; is_active: boolean };
 };
 
 type JamPelajaran = {
@@ -29,11 +29,10 @@ type JamPelajaran = {
 type Jadwal = {
   id: string;
   day_of_week: number;
-  effective_date: string;
-  end_date: string | null;
+  start_period: number;
+  end_period: number;
   room: string | null;
   assignment: Penugasan;
-  period: JamPelajaran;
 };
 
 type Props = {
@@ -54,11 +53,11 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  // Susun grid: hari 1-6 × jam
+  // Susun grid: hari 1-6 × jam (berdasarkan start_period)
   const days = [1, 2, 3, 4, 5, 6];
   const jadwalByDayPeriod: Record<string, Jadwal[]> = {};
   jadwalList.forEach(j => {
-    const key = `${j.day_of_week}-${j.period.id}`;
+    const key = `${j.day_of_week}-${j.start_period}`;
     if (!jadwalByDayPeriod[key]) jadwalByDayPeriod[key] = [];
     jadwalByDayPeriod[key].push(j);
   });
@@ -66,6 +65,11 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
   const activePeriods = jamPelajaranList
     .filter(j => !j.is_break)
     .sort((a, b) => a.period_number - b.period_number);
+
+  function getJamLabel(periodNumber: number) {
+    const jam = jamPelajaranList.find(j => j.period_number === periodNumber);
+    return jam ? `JP ${jam.period_number} (${formatWaktu(jam.start_time)})` : `JP ${periodNumber}`;
+  }
 
   function handleEdit(jadwal: Jadwal) {
     setEditItem(jadwal);
@@ -93,7 +97,6 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
         return;
       }
       setModalOpen(false);
-      // Refresh halaman (simple approach - could use router.refresh())
       window.location.reload();
     });
   }
@@ -145,7 +148,7 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
                   </div>
                 </td>
                 {days.map(day => {
-                  const key = `${day}-${jam.id}`;
+                  const key = `${day}-${jam.period_number}`;
                   const items = jadwalByDayPeriod[key] || [];
                   return (
                     <td key={day} className="py-2 px-2 border-t border-white/5 align-top">
@@ -191,26 +194,31 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
 
       {/* Daftar Jadwal (mobile-friendly) */}
       <div className="lg:hidden space-y-3">
-        {jadwalList.map(jadwal => (
-          <GlassCard key={jadwal.id} className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-white font-semibold">
-                  {jadwal.assignment.subject.name}
+        {jadwalList.map(jadwal => {
+          const startJam = jamPelajaranList.find(j => j.period_number === jadwal.start_period);
+          const endJam = jamPelajaranList.find(j => j.period_number === jadwal.end_period);
+          return (
+            <GlassCard key={jadwal.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-white font-semibold">
+                    {jadwal.assignment.subject.name}
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    {HARI[jadwal.day_of_week]} • JP {jadwal.start_period}–{jadwal.end_period}
+                    {startJam && endJam && ` (${formatWaktu(startJam.start_time)}–${formatWaktu(endJam.end_time)})`}
+                  </div>
+                  <div className="text-white/50 text-sm">{jadwal.assignment.class.name}</div>
+                  {jadwal.room && <div className="text-white/40 text-xs mt-1">📍 {jadwal.room}</div>}
                 </div>
-                <div className="text-white/60 text-sm">
-                  {HARI[jadwal.day_of_week]} • {formatWaktu(jadwal.period.start_time)}–{formatWaktu(jadwal.period.end_time)}
+                <div className="flex gap-2">
+                  <GlassButton size="sm" onClick={() => handleEdit(jadwal)}>Edit</GlassButton>
+                  <GlassButton size="sm" variant="danger" onClick={() => setDeleteItem(jadwal)}>Hapus</GlassButton>
                 </div>
-                <div className="text-white/50 text-sm">{jadwal.assignment.class.name}</div>
-                {jadwal.room && <div className="text-white/40 text-xs mt-1">📍 {jadwal.room}</div>}
               </div>
-              <div className="flex gap-2">
-                <GlassButton size="sm" onClick={() => handleEdit(jadwal)}>Edit</GlassButton>
-                <GlassButton size="sm" variant="danger" onClick={() => setDeleteItem(jadwal)}>Hapus</GlassButton>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          );
+        })}
       </div>
 
       {/* Modal Tambah/Edit */}
@@ -232,7 +240,7 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
               <option value="">Pilih penugasan...</option>
               {penugasanList.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.subject.name} - {p.class.name} ({p.school_period.name})
+                  {p.subject.name} - {p.class.name} ({p.semester.name})
                 </option>
               ))}
             </GlassSelect>
@@ -248,36 +256,30 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
                 ))}
               </GlassSelect>
             </div>
-            <div>
-              <label className="block text-sm text-white/70 mb-1">Jam Pelajaran</label>
-              <GlassSelect name="period_id" required defaultValue={editItem?.period.id ?? ''}>
-                <option value="">Pilih jam...</option>
-                {activePeriods.map(j => (
-                  <option key={j.id} value={j.id}>
-                    JP {j.period_number} ({formatWaktu(j.start_time)}–{formatWaktu(j.end_time)})
-                  </option>
-                ))}
-              </GlassSelect>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-white/70 mb-1">Tanggal Efektif</label>
-              <GlassInput
-                type="date"
-                name="effective_date"
-                required
-                defaultValue={editItem?.effective_date ?? ''}
-              />
+              <label className="block text-sm text-white/70 mb-1">Jam Mulai (JP)</label>
+              <GlassSelect name="start_period" required defaultValue={editItem?.start_period?.toString() ?? ''}>
+                <option value="">Pilih jam mulai...</option>
+                {activePeriods.map(j => (
+                  <option key={j.id} value={j.period_number.toString()}>
+                    JP {j.period_number} ({formatWaktu(j.start_time)})
+                  </option>
+                ))}
+              </GlassSelect>
             </div>
             <div>
-              <label className="block text-sm text-white/70 mb-1">Tanggal Berakhir (opsional)</label>
-              <GlassInput
-                type="date"
-                name="end_date"
-                defaultValue={editItem?.end_date ?? ''}
-              />
+              <label className="block text-sm text-white/70 mb-1">Jam Selesai (JP)</label>
+              <GlassSelect name="end_period" required defaultValue={editItem?.end_period?.toString() ?? ''}>
+                <option value="">Pilih jam selesai...</option>
+                {activePeriods.map(j => (
+                  <option key={j.id} value={j.period_number.toString()}>
+                    JP {j.period_number} ({formatWaktu(j.end_time)})
+                  </option>
+                ))}
+              </GlassSelect>
             </div>
           </div>
 
@@ -312,4 +314,3 @@ export default function JadwalClient({ initialJadwal, penugasanList, jamPelajara
     </div>
   );
 }
-

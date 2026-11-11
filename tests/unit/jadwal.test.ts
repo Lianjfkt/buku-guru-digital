@@ -6,9 +6,8 @@ describe('Jadwal Schemas', () => {
     const valid = {
       assignment_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       day_of_week: 1, // Senin
-      period_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      effective_date: '2026-07-15',
-      end_date: null,
+      start_period: 1,
+      end_period: 3,
       room: 'Ruang 10A',
     };
     const res = jadwalSchema.safeParse(valid);
@@ -19,8 +18,8 @@ describe('Jadwal Schemas', () => {
     const invalid = {
       assignment_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       day_of_week: 7, // Minggu tidak valid (1-6)
-      period_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      effective_date: '2026-07-15',
+      start_period: 1,
+      end_period: 2,
     };
     const res = jadwalSchema.safeParse(invalid);
     expect(res.success).toBe(false);
@@ -30,22 +29,21 @@ describe('Jadwal Schemas', () => {
     const invalid = {
       assignment_id: 'not-a-uuid',
       day_of_week: 1,
-      period_id: 'also-not-a-uuid',
-      effective_date: '2026-07-15',
+      start_period: 1,
+      end_period: 2,
     };
     const res = jadwalSchema.safeParse(invalid);
     expect(res.success).toBe(false);
   });
 
-  it('rejects invalid date format', () => {
+  it('rejects end_period earlier than start_period', () => {
     const invalid = {
       assignment_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       day_of_week: 1,
-      period_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      effective_date: '15/07/2026',
+      start_period: 4,
+      end_period: 2,
     };
     const res = jadwalSchema.safeParse(invalid);
     expect(res.success).toBe(false);
   });
 });
-

@@ -1,29 +1,47 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
-import { saveSettingsAction } from "@/features/admin/actions";
+import { saveSettingsAction, getAppSettingsAction } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { Settings, Save, ShieldCheck } from "lucide-react";
 
 export default function AdminPengaturanPage() {
-  const [schoolName, setSchoolName] = useState("SMA Negeri 1 Teladan");
-  const [address, setAddress] = useState("Jl. Pendidikan No. 45, Jakarta Selatan");
-  const [principalName, setPrincipalName] = useState("Drs. H. Bambang Sudarsono, M.Pd.");
-  const [principalNip, setPrincipalNip] = useState("197001011995031001");
+  const [settingsId, setSettingsId] = useState<string | undefined>(undefined);
+  const [schoolName, setSchoolName] = useState("");
+  const [address, setAddress] = useState("");
+  const [principalName, setPrincipalName] = useState("");
+  const [principalNip, setPrincipalNip] = useState("");
   const [attendanceThreshold, setAttendanceThreshold] = useState(80);
   const [kktpDefault, setKktpDefault] = useState(75);
   const [remedialMaxScore, setRemedialMaxScore] = useState(75);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadSettings() {
+      const res = await getAppSettingsAction();
+      if (res.ok && res.data) {
+        setSettingsId(res.data.id);
+        setSchoolName(res.data.school_name || "");
+        setAddress(res.data.address || "");
+        setPrincipalName(res.data.principal_name || "");
+        setPrincipalNip(res.data.principal_nip || "");
+        if (res.data.attendance_threshold) setAttendanceThreshold(Number(res.data.attendance_threshold));
+        if (res.data.kktp_default) setKktpDefault(Number(res.data.kktp_default));
+        if (res.data.remedial_max_score) setRemedialMaxScore(Number(res.data.remedial_max_score));
+      }
+    }
+    loadSettings();
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     const res = await saveSettingsAction({
+      id: settingsId,
       school_name: schoolName,
       address,
       principal_name: principalName,
@@ -44,8 +62,7 @@ export default function AdminPengaturanPage() {
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Pengaturan & Profil Sekolah
@@ -136,7 +153,6 @@ export default function AdminPengaturanPage() {
           </div>
         </form>
       </div>
-    </AppLayout>
   );
 }
 

@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { saveStudentAction, deleteStudentAction } from "@/features/admin/actions";
+import { saveStudentAction, deleteStudentAction, getSiswaList, getKelasList } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { GraduationCap, Plus, Upload, Search, Edit2, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -38,55 +37,38 @@ export default function AdminSiswaPage() {
   const [classId, setClassId] = useState("d0000000-0000-0000-0000-000000000001");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Data Simulasi
-  const classes = [
-    { value: "d0000000-0000-0000-0000-000000000001", label: "Kelas X-A" },
-    { value: "d0000000-0000-0000-0000-000000000002", label: "Kelas X-B" },
-    { value: "d0000000-0000-0000-0000-000000000003", label: "Kelas XI-IPA-1" },
-  ];
+  const [classes, setClasses] = useState<{ value: string; label: string }[]>([]);
+  const [studentList, setStudentList] = useState<StudentItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  const [studentList, setStudentList] = useState<StudentItem[]>([
-    {
-      id: "e0000000-0000-0000-0000-000000000001",
-      full_name: "Aditya Pratama",
-      nis: "26001",
-      nisn: "0081234501",
-      gender: "L",
-      class_id: "d0000000-0000-0000-0000-000000000001",
-      class_name: "X-A",
-      is_active: true,
-    },
-    {
-      id: "e0000000-0000-0000-0000-000000000002",
-      full_name: "Alina Rahmawati",
-      nis: "26002",
-      nisn: "0081234502",
-      gender: "P",
-      class_id: "d0000000-0000-0000-0000-000000000001",
-      class_name: "X-A",
-      is_active: true,
-    },
-    {
-      id: "e0000000-0000-0000-0000-000000000003",
-      full_name: "Bayu Setiawan",
-      nis: "26003",
-      nisn: "0081234503",
-      gender: "L",
-      class_id: "d0000000-0000-0000-0000-000000000001",
-      class_name: "X-A",
-      is_active: true,
-    },
-    {
-      id: "e0000000-0000-0000-0000-000000000004",
-      full_name: "Citra Kirana",
-      nis: "26004",
-      nisn: "0081234504",
-      gender: "P",
-      class_id: "d0000000-0000-0000-0000-000000000001",
-      class_name: "X-A",
-      is_active: true,
-    },
-  ]);
+  const loadData = async () => {
+    setLoadingData(true);
+    const [sRes, cRes] = await Promise.all([getSiswaList(), getKelasList()]);
+    if (cRes.ok && cRes.data) {
+      const cOpts = cRes.data.map((c: any) => ({ value: c.id, label: `Kelas ${c.name}` }));
+      setClasses(cOpts);
+      if (cOpts.length > 0 && !classId) setClassId(cOpts[0].value);
+    }
+    if (sRes.ok && sRes.data) {
+      setStudentList(
+        sRes.data.map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name,
+          nis: s.nis,
+          nisn: s.nisn,
+          gender: s.gender,
+          class_id: s.class_id,
+          class_name: s.class?.name || "",
+          is_active: s.is_active,
+        }))
+      );
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filtered = studentList.filter((s) => {
     const matchesSearch =
@@ -141,37 +123,11 @@ export default function AdminSiswaPage() {
     const cName = classes.find((c) => c.value === classId)?.label.replace("Kelas ", "") || "X-A";
 
     if (selectedStudent) {
-      setStudentList((prev) =>
-        prev.map((s) =>
-          s.id === selectedStudent.id
-            ? {
-                ...s,
-                full_name: fullName,
-                nis,
-                nisn: nisn || null,
-                gender,
-                class_id: classId,
-                class_name: cName,
-              }
-            : s
-        )
-      );
       toast.success("Data siswa berhasil diperbarui");
     } else {
-      const newS: StudentItem = {
-        id: crypto.randomUUID(),
-        full_name: fullName,
-        nis,
-        nisn: nisn || null,
-        gender,
-        class_id: classId,
-        class_name: cName,
-        is_active: true,
-      };
-      setStudentList((prev) => [...prev, newS]);
       toast.success("Siswa baru berhasil ditambahkan");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -182,13 +138,12 @@ export default function AdminSiswaPage() {
       toast.error("Gagal menghapus siswa");
       return;
     }
-    setStudentList((prev) => prev.filter((s) => s.id !== id));
+    await loadData();
     toast.success("Siswa berhasil dihapus");
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -358,7 +313,6 @@ export default function AdminSiswaPage() {
           </form>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

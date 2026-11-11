@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { saveSchoolPeriodAction, deleteSchoolPeriodAction } from "@/features/admin/actions";
+import { saveSchoolPeriodAction, deleteSchoolPeriodAction, getSchoolPeriodList } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { Clock, Plus, Edit2, Trash2, Coffee } from "lucide-react";
 
@@ -29,16 +28,21 @@ export default function AdminJamPelajaranPage() {
   const [isBreak, setIsBreak] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [periodList, setPeriodList] = useState<PeriodItem[]>([
-    { id: "1", period_number: 1, start_time: "07:15", end_time: "08:00", is_break: false },
-    { id: "2", period_number: 2, start_time: "08:00", end_time: "08:45", is_break: false },
-    { id: "3", period_number: 3, start_time: "08:45", end_time: "09:30", is_break: false },
-    { id: "4", period_number: 4, start_time: "09:30", end_time: "10:00", is_break: true },
-    { id: "5", period_number: 5, start_time: "10:00", end_time: "10:45", is_break: false },
-    { id: "6", period_number: 6, start_time: "10:45", end_time: "11:30", is_break: false },
-    { id: "7", period_number: 7, start_time: "11:30", end_time: "12:15", is_break: false },
-    { id: "8", period_number: 8, start_time: "12:15", end_time: "13:00", is_break: true },
-  ]);
+  const [periodList, setPeriodList] = useState<PeriodItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  const loadData = async () => {
+    setLoadingData(true);
+    const res = await getSchoolPeriodList();
+    if (res.ok && res.data) {
+      setPeriodList(res.data);
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleOpenAdd = () => {
     setSelectedPeriod(null);
@@ -78,26 +82,11 @@ export default function AdminJamPelajaranPage() {
     }
 
     if (selectedPeriod) {
-      setPeriodList((prev) =>
-        prev.map((p) =>
-          p.id === selectedPeriod.id
-            ? { ...p, period_number: periodNumber, start_time: startTime, end_time: endTime, is_break: isBreak }
-            : p
-        )
-      );
       toast.success("Jam pelajaran berhasil diubah");
     } else {
-      const newP: PeriodItem = {
-        id: crypto.randomUUID(),
-        period_number: periodNumber,
-        start_time: startTime,
-        end_time: endTime,
-        is_break: isBreak,
-      };
-      setPeriodList((prev) => [...prev, newP]);
       toast.success("Jam pelajaran baru ditambahkan");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -108,13 +97,12 @@ export default function AdminJamPelajaranPage() {
       toast.error("Gagal menghapus jam pelajaran");
       return;
     }
-    setPeriodList((prev) => prev.filter((p) => p.id !== id));
+    await loadData();
     toast.success("Jam pelajaran dihapus");
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -243,7 +231,6 @@ export default function AdminJamPelajaranPage() {
           </form>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

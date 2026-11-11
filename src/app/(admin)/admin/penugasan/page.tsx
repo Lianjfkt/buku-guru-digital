@@ -1,14 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { GlassModal } from "@/components/ui/GlassModal";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { saveAssignmentAction, deleteAssignmentAction } from "@/features/admin/actions";
+import {
+  saveAssignmentAction,
+  deleteAssignmentAction,
+  getAssignmentList,
+  getGuruList,
+  getKelasList,
+  getSubjectList,
+  getSemestersList,
+} from "@/features/admin/actions";
 import { toast } from "sonner";
 import { Briefcase, Plus, Trash2, Edit2 } from "lucide-react";
 
@@ -40,55 +47,67 @@ export default function AdminPenugasanPage() {
   const [kktpDefault, setKktpDefault] = useState(75);
   const [isLoading, setIsLoading] = useState(false);
 
-  const teachers = [
-    { value: "22222222-2222-2222-2222-222222222222", label: "Bu Rina Wulandari, S.Pd." },
-    { value: "33333333-3333-3333-3333-333333333333", label: "Pak Ahmad Fauzi, M.Kom." },
-    { value: "44444444-4444-4444-4444-444444444444", label: "Bu Sari Rahayu, M.Pd." },
-  ];
+  const [teachers, setTeachers] = useState<{ value: string; label: string }[]>([]);
+  const [classes, setClasses] = useState<{ value: string; label: string }[]>([]);
+  const [subjects, setSubjects] = useState<{ value: string; label: string }[]>([]);
+  const [semesters, setSemesters] = useState<{ value: string; label: string }[]>([]);
+  const [assignmentList, setAssignmentList] = useState<AssignmentItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  const classes = [
-    { value: "d0000000-0000-0000-0000-000000000001", label: "Kelas X-A" },
-    { value: "d0000000-0000-0000-0000-000000000002", label: "Kelas X-B" },
-    { value: "d0000000-0000-0000-0000-000000000003", label: "Kelas XI-IPA-1" },
-  ];
+  const loadData = async () => {
+    setLoadingData(true);
+    const [aRes, gRes, cRes, sRes, semRes] = await Promise.all([
+      getAssignmentList(),
+      getGuruList(),
+      getKelasList(),
+      getSubjectList(),
+      getSemestersList(),
+    ]);
 
-  const subjects = [
-    { value: "c0000000-0000-0000-0000-000000000001", label: "Informatika (INF)" },
-    { value: "c0000000-0000-0000-0000-000000000002", label: "Matematika (MAT)" },
-    { value: "c0000000-0000-0000-0000-000000000003", label: "Bahasa Indonesia (BIN)" },
-    { value: "c0000000-0000-0000-0000-000000000004", label: "Bahasa Inggris (BIG)" },
-  ];
+    if (gRes.ok && gRes.data) {
+      const tOpts = gRes.data.map((g: any) => ({ value: g.id, label: g.full_name }));
+      setTeachers(tOpts);
+      if (tOpts.length > 0 && !teacherId) setTeacherId(tOpts[0].value);
+    }
+    if (cRes.ok && cRes.data) {
+      const cOpts = cRes.data.map((c: any) => ({ value: c.id, label: `Kelas ${c.name}` }));
+      setClasses(cOpts);
+      if (cOpts.length > 0 && !classId) setClassId(cOpts[0].value);
+    }
+    if (sRes.ok && sRes.data) {
+      const sOpts = sRes.data.map((s: any) => ({ value: s.id, label: `${s.name} (${s.code})` }));
+      setSubjects(sOpts);
+      if (sOpts.length > 0 && !subjectId) setSubjectId(sOpts[0].value);
+    }
+    if (semRes.ok && semRes.data) {
+      const semOpts = semRes.data.map((sem: any) => ({ value: sem.id, label: sem.name }));
+      setSemesters(semOpts);
+      if (semOpts.length > 0 && !semesterId) setSemesterId(semOpts[0].value);
+    }
+    if (aRes.ok && aRes.data) {
+      setAssignmentList(
+        aRes.data.map((a: any) => ({
+          id: a.id,
+          teacher_id: a.teacher_id,
+          teacher_name: a.teacher?.full_name || "",
+          class_id: a.class_id,
+          class_name: a.class?.name || "",
+          subject_id: a.subject_id,
+          subject_name: a.subject?.name || "",
+          semester_id: a.semester_id,
+          semester_name: a.semester?.name || "",
+          weight_formative: Number(a.weight_formative),
+          weight_summative: Number(a.weight_summative),
+          kktp_default: Number(a.kktp_default),
+        }))
+      );
+    }
+    setLoadingData(false);
+  };
 
-  const [assignmentList, setAssignmentList] = useState<AssignmentItem[]>([
-    {
-      id: "f0000000-0000-0000-0000-000000000001",
-      teacher_id: "22222222-2222-2222-2222-222222222222",
-      teacher_name: "Bu Rina Wulandari, S.Pd.",
-      class_id: "d0000000-0000-0000-0000-000000000001",
-      class_name: "X-A",
-      subject_id: "c0000000-0000-0000-0000-000000000001",
-      subject_name: "Informatika",
-      semester_id: "b0000000-0000-0000-0000-000000000001",
-      semester_name: "Ganjil 2026/2027",
-      weight_formative: 40,
-      weight_summative: 60,
-      kktp_default: 75,
-    },
-    {
-      id: "f0000000-0000-0000-0000-000000000002",
-      teacher_id: "33333333-3333-3333-3333-333333333333",
-      teacher_name: "Pak Ahmad Fauzi, M.Kom.",
-      class_id: "d0000000-0000-0000-0000-000000000001",
-      class_name: "X-A",
-      subject_id: "c0000000-0000-0000-0000-000000000002",
-      subject_name: "Matematika",
-      semester_id: "b0000000-0000-0000-0000-000000000001",
-      semester_name: "Ganjil 2026/2027",
-      weight_formative: 40,
-      weight_summative: 60,
-      kktp_default: 75,
-    },
-  ]);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleOpenAdd = () => {
     setSelectedAssignment(null);
@@ -128,49 +147,12 @@ export default function AdminPenugasanPage() {
       return;
     }
 
-    const tName = teachers.find((t) => t.value === teacherId)?.label || "";
-    const cName = classes.find((c) => c.value === classId)?.label.replace("Kelas ", "") || "";
-    const sName = subjects.find((s) => s.value === subjectId)?.label.split(" (")[0] || "";
-
     if (selectedAssignment) {
-      setAssignmentList((prev) =>
-        prev.map((a) =>
-          a.id === selectedAssignment.id
-            ? {
-                ...a,
-                teacher_id: teacherId,
-                teacher_name: tName,
-                class_id: classId,
-                class_name: cName,
-                subject_id: subjectId,
-                subject_name: sName,
-                weight_formative: weightFormative,
-                weight_summative: weightSummative,
-                kktp_default: kktpDefault,
-              }
-            : a
-        )
-      );
       toast.success("Penugasan mengajar diperbarui");
     } else {
-      const newA: AssignmentItem = {
-        id: crypto.randomUUID(),
-        teacher_id: teacherId,
-        teacher_name: tName,
-        class_id: classId,
-        class_name: cName,
-        subject_id: subjectId,
-        subject_name: sName,
-        semester_id: semesterId,
-        semester_name: "Ganjil 2026/2027",
-        weight_formative: weightFormative,
-        weight_summative: weightSummative,
-        kktp_default: kktpDefault,
-      };
-      setAssignmentList((prev) => [...prev, newA]);
       toast.success("Penugasan mengajar baru dibuat");
     }
-
+    await loadData();
     setModalOpen(false);
   };
 
@@ -181,13 +163,12 @@ export default function AdminPenugasanPage() {
       toast.error("Gagal menghapus penugasan");
       return;
     }
-    setAssignmentList((prev) => prev.filter((a) => a.id !== id));
+    await loadData();
     toast.success("Penugasan berhasil dihapus");
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -331,7 +312,6 @@ export default function AdminPenugasanPage() {
           </form>
         </GlassModal>
       </div>
-    </AppLayout>
   );
 }
 

@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassTable, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/GlassTable";
-import { importStudentsAction } from "@/features/admin/actions";
+import { importStudentsAction, getKelasList } from "@/features/admin/actions";
 import { toast } from "sonner";
 import { Upload, Download, CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -29,12 +28,23 @@ export default function AdminImporSiswaPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // Kelas map untuk lookup ID
-  const classMap: Record<string, string> = {
-    "X-A": "d0000000-0000-0000-0000-000000000001",
-    "X-B": "d0000000-0000-0000-0000-000000000002",
-    "XI-IPA-1": "d0000000-0000-0000-0000-000000000003",
-  };
+  // Kelas map untuk lookup ID dinamis dari database
+  const [classMap, setClassMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    async function fetchClasses() {
+      const res = await getKelasList();
+      if (res.ok && res.data) {
+        const map: Record<string, string> = {};
+        res.data.forEach((c: any) => {
+          map[c.name] = c.id;
+          map[`Kelas ${c.name}`] = c.id;
+        });
+        setClassMap(map);
+      }
+    }
+    fetchClasses();
+  }, []);
 
   const handleDownloadTemplate = () => {
     // Buat file CSV template
@@ -145,8 +155,7 @@ export default function AdminImporSiswaPage() {
   };
 
   return (
-    <AppLayout role="admin" userName="Pak Dedi (Administrator)">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link href="/admin/siswa">
@@ -254,7 +263,6 @@ export default function AdminImporSiswaPage() {
           </div>
         )}
       </div>
-    </AppLayout>
   );
 }
 

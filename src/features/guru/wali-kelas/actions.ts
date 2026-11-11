@@ -3,16 +3,43 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { homeroomNoteSchema } from './schemas';
+import { cookies } from 'next/headers';
+import {
+  MOCK_GURU,
+  MOCK_KELAS,
+  MOCK_STUDENTS,
+  MOCK_ASSIGNMENTS,
+  MOCK_ASSESSMENTS,
+  MOCK_STUDENT_NOTES,
+} from '@/lib/mockData';
 
 export async function getWaliKelasData() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo_role')?.value === 'guru';
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Tidak terautentikasi', data: null };
+  if (!user && !isDemo) return { error: 'Tidak terautentikasi', data: null };
+
+  if (isDemo || !user) {
+    return {
+      data: {
+        profile: { id: MOCK_GURU[1].id, full_name: MOCK_GURU[1].full_name },
+        classes: [
+          {
+            ...MOCK_KELAS[0],
+            students: MOCK_STUDENTS,
+          },
+        ],
+      },
+      error: null,
+    };
+  }
 
   const { data: profile } = await (supabase as any)
     .from('profiles')
     .select('id, full_name')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single();
 
   if (!profile) return { error: 'Profil tidak ditemukan', data: null };
@@ -23,8 +50,7 @@ export async function getWaliKelasData() {
     .select(`
       id,
       name,
-      grade,
-      school_period:school_periods ( id, name, is_active ),
+      grade_level,
       students:students (
         id,
         nis,
@@ -48,9 +74,47 @@ export async function getWaliKelasData() {
 }
 
 export async function getLegerKelas(classId: string) {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo_role')?.value === 'guru';
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Tidak terautentikasi', data: null };
+  if (!user && !isDemo) return { error: 'Tidak terautentikasi', data: null };
+
+  if (isDemo || !user) {
+    const classData = {
+      ...MOCK_KELAS[0],
+      students: MOCK_STUDENTS,
+    };
+
+    const subjectScores: Record<string, any[]> = {};
+    MOCK_ASSIGNMENTS.forEach((a) => {
+      subjectScores[a.id] = MOCK_STUDENTS.map((s, idx) => ({
+        student_id: s.id,
+        student_name: s.full_name,
+        nis: s.nis,
+        nisn: s.nisn,
+        gender: s.gender,
+        avg_formative: 80 + (idx % 15),
+        avg_summative: 78 + (idx % 18),
+        final_score: 79 + (idx % 16),
+        passed: (79 + (idx % 16)) >= 75,
+      }));
+    });
+
+    return {
+      data: {
+        classData,
+        assignments: MOCK_ASSIGNMENTS.map((a: any) => ({
+          ...a,
+          kktp: a.kktp_default,
+        })),
+        notes: MOCK_STUDENT_NOTES,
+        subjectScores,
+      },
+      error: null,
+    };
+  }
 
   // Ambil detail kelas dan murid
   const { data: classData, error: classError } = await (supabase as any)
@@ -58,8 +122,7 @@ export async function getLegerKelas(classId: string) {
     .select(`
       id,
       name,
-      grade,
-      school_period:school_periods ( id, name ),
+      grade_level,
       students:students ( id, nis, nisn, full_name, gender )
     `)
     .eq('id', classId)
@@ -67,12 +130,14 @@ export async function getLegerKelas(classId: string) {
 
   if (classError || !classData) return { error: 'Kelas tidak ditemukan', data: null };
 
+  const studentIds = (classData.students || []).map((s: any) => s.id);
+
   // Ambil semua mapel & penugasan untuk kelas ini
   const { data: assignments, error: assError } = await (supabase as any)
     .from('teaching_assignments')
     .select(`
       id,
-      kktp,
+      kktp_default,
       weight_formative,
       weight_summative,
       subject:subjects ( id, name, code ),
@@ -83,13 +148,17 @@ export async function getLegerKelas(classId: string) {
 
   if (assError) return { error: assError.message, data: null };
 
-  // Ambil catatan wali kelas
-  const { data: notes } = await (supabase as any)
-    .from('student_notes')
-    .select('*')
-    .eq('class_id', classId)
-    .is('deleted_at', null)
-    .order('date', { ascending: false });
+  // Ambil catatan wali kelas untuk siswa di kelas ini
+  let notes: any[] = [];
+  if (studentIds.length > 0) {
+    const { data: notesData } = await (supabase as any)
+      .from('student_notes')
+      .select('*')
+      .in('student_id', studentIds)
+      .is('deleted_at', null)
+      .order('date', { ascending: false });
+    notes = notesData ?? [];
+  }
 
   // Ambil rekap nilai tiap penugasan
   const subjectScores: Record<string, any[]> = {};
@@ -103,8 +172,11 @@ export async function getLegerKelas(classId: string) {
   return {
     data: {
       classData,
-      assignments: assignments || [],
-      notes: notes || [],
+      assignments: (assignments || []).map((a: any) => ({
+        ...a,
+        kktp: a.kktp_default,
+      })),
+      notes,
       subjectScores,
     },
     error: null,
@@ -116,18 +188,10 @@ export async function addStudentNote(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Tidak terautentikasi' };
 
-  const { data: profile } = await (supabase as any)
-    .from('profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
   const raw = {
-    class_id: formData.get('class_id') as string,
     student_id: formData.get('student_id') as string,
     category: formData.get('category') as string,
     note: formData.get('note') as string,
-    follow_up: (formData.get('follow_up') as string) || null,
     date: formData.get('date') as string,
   };
 
@@ -137,12 +201,14 @@ export async function addStudentNote(formData: FormData) {
   const { error } = await (supabase as any)
     .from('student_notes')
     .insert({
-      ...parsed.data,
-      teacher_id: profile?.id,
+      student_id: parsed.data.student_id,
+      author_id: user.id,
+      category: parsed.data.category,
+      note: parsed.data.note,
+      date: parsed.data.date,
     });
 
   if (error) return { error: error.message };
   revalidatePath('/wali-kelas');
   return { error: null };
 }
-
