@@ -25,6 +25,16 @@ export function AppLayout({
   semesterName = "Ganjil 2026/2027",
   onLogout,
 }: AppLayoutProps) {
+  const handleLogout = () => {
+    // Bersihkan cookie demo
+    document.cookie = "demo_role=; path=/; max-age=0";
+    if (onLogout) {
+      onLogout();
+    } else {
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row relative">
       {/* Mesh background gradient */}
@@ -40,7 +50,7 @@ export function AppLayout({
           userRole={role}
           schoolName={schoolName}
           semesterName={semesterName}
-          onLogout={onLogout}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">

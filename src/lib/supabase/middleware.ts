@@ -42,6 +42,19 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico");
 
+  // Cek cookie demo untuk pengujian lokal
+  const demoRole = request.cookies.get("demo_role")?.value;
+  if (demoRole) {
+    if (pathname === "/login") {
+      const target = demoRole === "admin" ? "/admin/dashboard" : "/dashboard";
+      return NextResponse.redirect(new URL(target, request.url));
+    }
+    if (pathname.startsWith("/admin") && demoRole !== "admin") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return supabaseResponse;
+  }
+
   // 1. Jika belum login dan mengakses halaman yang dilindungi
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();

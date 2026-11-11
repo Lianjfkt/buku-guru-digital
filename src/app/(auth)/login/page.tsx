@@ -176,6 +176,37 @@ function LoginForm() {
         </div>
       </form>
 
+      {/* Demo Fast Login Switcher */}
+      <div className="pt-4 mt-2 border-t border-slate-200/50 dark:border-white/10 space-y-2">
+        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 text-center">
+          ⚡ Akun Demo Instan (Pengujian)
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              document.cookie = "demo_role=admin; path=/; max-age=86400";
+              router.push("/admin/dashboard");
+            }}
+            className="p-2 text-xs font-medium rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 transition-colors text-center"
+          >
+            👨‍💼 Admin Demo
+            <span className="block text-[10px] text-slate-500 dark:text-slate-400">Pak Dedi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              document.cookie = "demo_role=guru; path=/; max-age=86400";
+              router.push("/dashboard");
+            }}
+            className="p-2 text-xs font-medium rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 transition-colors text-center"
+          >
+            👩‍🏫 Guru / Wali Kelas
+            <span className="block text-[10px] text-slate-500 dark:text-slate-400">Bu Rina</span>
+          </button>
+        </div>
+      </div>
+
       <div className="pt-2 text-center">
         <p className="text-[11px] text-slate-400 dark:text-slate-500">
           Belum memiliki akun? Hubungi Administrator / Operator TU sekolah.
