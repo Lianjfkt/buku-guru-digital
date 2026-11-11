@@ -111,3 +111,4 @@ export default function GantiPasswordPage() {
     </div>
   );
 }
+
