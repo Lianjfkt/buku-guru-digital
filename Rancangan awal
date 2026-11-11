@@ -1,0 +1,224 @@
+# PERAN
+Kamu adalah senior full-stack developer sekaligus arsitek sistem. Bangun web app "Ruang Guru" (nama sementara) untuk SATU sekolah dengan peran Admin dan Guru (sebagian guru juga Wali Kelas). Semua teks UI dalam Bahasa Indonesia. Kerjakan bertahap sesuai "TAHAPAN KERJA". Setelah tiap tahap, pastikan `npm run lint`, `npm run typecheck`, dan `npm run build` lolos sebelum lanjut. Jika ada keputusan desain yang ambigu, pilih opsi paling sederhana dan aman, lalu catat di `docs/DECISIONS.md`.
+
+# 1. TECH STACK
+- Next.js (App Router) + TypeScript (strict) + Tailwind CSS
+- Supabase: Postgres, Auth (email + password), Row Level Security (RLS), Storage (logo & tanda tangan)
+- `@supabase/ssr` untuk auth server/client; middleware untuk proteksi route
+- Deploy: Vercel. Sediakan `.env.example`, jangan hardcode secret.
+- Library: `react-hook-form` + `zod`, `@tanstack/react-query`, `lucide-react`, `sonner`, `date-fns` (locale `id`), `exceljs` (Excel), `jspdf` + `jspdf-autotable` atau `@react-pdf/renderer` (PDF), `recharts` (grafik), `@serwist/next` atau `next-pwa` (PWA), `idb` (antrian offline)
+- Kualitas: ESLint, Prettier, Vitest (unit), Playwright (E2E), GitHub Actions (CI)
+
+# 2. PERAN & HAK AKSES
+**Admin**
+- Kelola akun guru (buat, ubah, nonaktifkan, reset password). Pembuatan akun memakai Supabase Admin API (service role key) HANYA di server (Route Handler/Server Action), tidak pernah dikirim ke client.
+- Kelola master data: tahun ajaran, semester, kelas, siswa, mapel, jam pelajaran, hari libur, penugasan mengajar (guru ↔ kelas ↔ mapel ↔ semester), penetapan wali kelas.
+- Melihat semua agenda, jadwal, kehadiran, nilai (read-only), rekap seluruh sekolah, audit log, dan mengatur penguncian periode.
+
+**Guru**
+- Hanya melihat dan mengelola data dari penugasan mengajar miliknya.
+- Mengelola jadwal, agenda, presensi, Tujuan Pembelajaran (TP), asesmen, nilai, dan catatan siswa.
+
+**Wali Kelas** (guru yang ditetapkan admin pada sebuah kelas)
+- Tambahan hak BACA (read-only) atas rekap kehadiran dan nilai SEMUA mapel di kelas perwaliannya, serta profil siswa, leger nilai, dan catatan perkembangan siswa di kelas tersebut. Tidak boleh mengubah nilai guru lain.
+
+# 3. FITUR UTAMA
+
+## 3.0 Jadwal Mengajar (diinput guru)
+- Guru menambah/ubah/hapus jadwal miliknya: hari (Senin–Sabtu), jam ke- (mulai–selesai), kelas + mapel (dipilih dari penugasan miliknya), ruangan (opsional), catatan (opsional).
+- Jam ke- mengikuti master "Jam Pelajaran" dari admin; waktu terisi otomatis.
+- Tampilan: grid mingguan (kolom hari, baris jam ke-) dan daftar per hari. Di HP: satu hari per layar dengan tab hari yang bisa digeser.
+- Validasi di client DAN server: guru tidak boleh bentrok dengan jadwalnya sendiri (blokir); jika kelas sudah dipakai guru lain di hari/jam yang sama tampilkan peringatan (tidak memblokir); jam selesai ≥ jam mulai.
+- Jadwal berlaku per semester; ada tombol "Salin jadwal dari semester sebelumnya".
+- Integrasi Agenda: tombol "Buat agenda dari jadwal" (pilih rentang tanggal) membuat agenda berstatus "Dijadwalkan", melewati hari libur, tanpa duplikat. Form agenda baru punya opsi "Pilih dari jadwal saya".
+- Integrasi Dashboard: kartu "Jadwal hari ini" dengan penanda sesi yang sedang berlangsung dan tombol cepat ke agenda/presensi.
+- Ekspor jadwal mingguan ke PDF (grid siap cetak) dan Excel.
+- Admin melihat jadwal semua guru/kelas (read-only) dan deteksi bentrok antar guru.
+
+## 3.1 Agenda Mengajar
+- CRUD agenda: tanggal, jam ke-, kelas, mapel, materi/topik, TP (pilih dari daftar TP), metode/kegiatan, refleksi, status (Dijadwalkan / Terlaksana / Tidak Terlaksana), alasan jika tidak terlaksana.
+- Tampilan daftar dengan filter (tanggal, kelas, mapel, status) dan tampilan kalender mingguan/bulanan.
+- Tombol "Isi presensi" pada tiap agenda.
+- Fitur "Duplikat agenda" (salin materi ke pertemuan berikutnya).
+
+## 3.2 Daftar Hadir Siswa
+- Satu agenda = satu sesi presensi. Status: Hadir, Sakit, Izin, Alpa + catatan opsional per siswa.
+- Tombol "Tandai semua hadir"; guru hanya mengubah yang tidak hadir. Simpan dengan upsert, tampilkan indikator tersimpan.
+- Nyaman dipakai di HP (target sentuh ≥ 44px).
+- **Mode offline**: jika koneksi putus, presensi disimpan di IndexedDB dalam antrian dan otomatis disinkronkan saat online. Tampilkan badge "Menunggu sinkronisasi". Tangani konflik dengan aturan: perubahan terakhir (updated_at) menang, dan tampilkan notifikasi jika ada konflik.
+- **Rekap otomatis**: persentase kehadiran per siswa/kelas/periode, jumlah H/S/I/A, sorot siswa di bawah ambang (default 80%, dapat diatur).
+
+## 3.3 Penilaian (Kurikulum Merdeka)
+- **TP**: guru membuat daftar TP per penugasan (kode, deskripsi, urutan) dan menetapkan KKTP/kriteria ketercapaian (ambang nilai per TP, default dari pengaturan).
+- **Asesmen**: Formatif (terkait 1+ TP; contoh: kuis, observasi, tugas, praktik) dan Sumatif (SLM, SAS, SAT).
+- **Input nilai** dalam tabel mirip spreadsheet (baris siswa × kolom asesmen): navigasi Tab/Enter/panah, paste dari Excel, validasi 0–100, boleh kosong, penyimpanan otomatis (debounce) dengan indikator status.
+- **Remedial & Pengayaan**: jika nilai di bawah KKTP, guru dapat mencatat nilai remedial (nilai akhir asesmen = nilai remedial dengan batas maksimal sesuai pengaturan, nilai asli tetap tersimpan) dan menandai siswa untuk pengayaan.
+- **Bobot**: pengaturan bobot formatif vs sumatif per penugasan (default 40:60).
+- **Rekap otomatis**: rata-rata formatif, rata-rata sumatif, nilai akhir berbobot, ketercapaian per TP (Belum Tercapai / Cukup / Tercapai / Sangat Tercapai dengan ambang yang bisa diatur), distribusi nilai kelas (grafik), daftar siswa perlu remedial.
+- **Deskripsi capaian otomatis** per siswa (draft kalimat berdasarkan TP tercapai/belum tercapai) yang bisa diedit guru.
+
+## 3.4 Catatan Perkembangan Siswa
+- Guru menulis catatan (akademik/sikap/perilaku/prestasi) per siswa dengan tanggal dan kategori. Catatan terlihat oleh guru pembuatnya, wali kelas siswa, dan admin.
+
+## 3.5 Profil Siswa
+- Halaman per siswa: identitas, grafik kehadiran, nilai per mapel, ketercapaian TP, catatan perkembangan. Akses sesuai peran (guru: hanya siswa yang ia ajar; wali kelas: siswa di kelasnya; admin: semua).
+
+## 3.6 Leger & Rekap Wali Kelas
+- Leger nilai kelas (siswa × mapel: nilai akhir) dan rekap kehadiran gabungan semua mapel untuk wali kelas. Ekspor Excel/PDF.
+
+## 3.7 Impor Data Siswa
+- Admin dapat impor siswa dari Excel/CSV: unduh template, unggah, tampilkan pratinjau, validasi (NIS unik, kelas valid, kolom wajib), laporan baris error yang bisa diunduh, lalu konfirmasi sebelum disimpan. Proses idempoten (upsert berdasarkan NIS).
+
+## 3.8 Notifikasi Dalam Aplikasi
+- Tabel `notifications` + ikon lonceng dengan jumlah belum dibaca. Pemicu: presensi belum diisi untuk agenda yang sudah lewat, agenda "Dijadwalkan" hari ini, periode penilaian akan dikunci, admin mengubah penugasan guru.
+- Admin melihat daftar guru yang belum mengisi presensi.
+
+## 3.9 Ekspor
+- Excel (.xlsx) dan PDF untuk: rekap kehadiran, daftar nilai per kelas/mapel, agenda, jadwal mingguan, leger nilai, dan profil siswa.
+- PDF memakai kop dari pengaturan sekolah (nama sekolah, alamat, logo), kolom tanda tangan guru/wali kelas/kepala sekolah (gambar tanda tangan opsional), dan CSS cetak yang rapi.
+
+## 3.10 Dashboard
+- Guru: jadwal hari ini, agenda mendatang, presensi belum diisi, ringkasan nilai terbaru, siswa perlu perhatian (kehadiran rendah / nilai di bawah KKTP).
+- Admin: jumlah guru/siswa/kelas, persentase kehadiran sekolah, agenda belum terlaksana, guru yang belum isi presensi, bentrok jadwal.
+
+## 3.11 Pengaturan & Administrasi Sistem (Admin)
+- Pengaturan sekolah: nama, alamat, logo, nama & NIP kepala sekolah, tanda tangan.
+- Ambang: kehadiran minimum, KKTP default, kategori ketercapaian, batas nilai remedial.
+- Penguncian periode: admin dapat mengunci nilai/presensi/agenda per semester atau sebelum tanggal tertentu; data terkunci hanya bisa diubah admin (dengan alasan yang dicatat).
+- Arsip tahun ajaran: tahun ajaran lama menjadi read-only.
+- Audit log viewer: filter per pengguna, tabel, aksi, tanggal.
+- Ekspor cadangan data (backup) ke Excel/JSON oleh admin.
+
+# 4. SKEMA DATABASE
+Buat migration SQL di `supabase/migrations/` dengan penamaan berurutan. Semua tabel: `uuid` PK (`gen_random_uuid()`), `created_at`, `updated_at` (trigger otomatis), dan `deleted_at` (soft delete) untuk tabel master/transaksi penting. Query default harus mengecualikan baris `deleted_at IS NOT NULL`.
+
+- `profiles` (id → auth.users, full_name, nip, role 'admin'|'guru', is_active, must_change_password)
+- `academic_years` (name, is_active, is_archived), `semesters` (academic_year_id, name, start_date, end_date, is_active, locked_until date null)
+- `classes` (name, grade_level, phase A–F, homeroom_teacher_id → profiles null)
+- `students` (full_name, nis unique, nisn, gender, class_id, is_active)
+- `subjects` (name, code)
+- `school_periods` (period_number unique, start_time, end_time, is_break)
+- `holidays` (date, name, semester_id null)
+- `teaching_assignments` (teacher_id, class_id, subject_id, semester_id, weight_formative, weight_summative, kktp_default; unique kombinasi)
+- `schedules` (assignment_id, day_of_week 1–6, start_period, end_period, room, notes, is_active; CHECK end_period >= start_period)
+- `learning_objectives` (assignment_id, code, description, sort_order, kktp)
+- `agendas` (assignment_id, schedule_id null, date, start_period, end_period, topic, activity, reflection, status, not_held_reason; unique(schedule_id, date))
+- `agenda_objectives` (agenda_id, objective_id)
+- `attendances` (agenda_id, student_id, status 'hadir'|'sakit'|'izin'|'alpa', note; unique(agenda_id, student_id))
+- `assessments` (assignment_id, title, category 'formatif'|'sumatif', type 'SLM'|'SAS'|'SAT'|'lainnya', date, max_score)
+- `assessment_objectives` (assessment_id, objective_id)
+- `scores` (assessment_id, student_id, score numeric(5,2) null, remedial_score numeric(5,2) null, needs_enrichment bool, note; unique(assessment_id, student_id))
+- `student_notes` (student_id, author_id, category, note, date)
+- `notifications` (user_id, type, title, body, link, read_at)
+- `app_settings` (singleton: nama sekolah, alamat, logo_path, kepala sekolah, NIP, signature_path, ambang kehadiran, ambang ketercapaian JSON, batas remedial)
+- `audit_logs` (user_id, table_name, record_id, action 'insert'|'update'|'delete', old_data jsonb, new_data jsonb, created_at)
+
+Ketentuan:
+- Index pada semua foreign key dan kolom filter (date, class_id, assignment_id, student_id).
+- Trigger audit pada `scores`, `attendances`, `agendas`, `teaching_assignments`, `students`, `profiles`.
+- Trigger pembuatan `profiles` saat user baru dibuat di auth.
+- Trigger penjaga penguncian: tolak INSERT/UPDATE/DELETE pada `scores`, `attendances`, `agendas` jika tanggal terkait ≤ `semesters.locked_until` atau tahun ajaran diarsipkan, kecuali pengguna admin.
+- SQL function/view (perhitungan di database, bukan di client): rekap kehadiran, rekap nilai (rata-rata, nilai akhir berbobot, ketercapaian TP), `detect_teacher_schedule_conflict`, `detect_class_schedule_conflict`, `generate_agendas_from_schedule` (SECURITY INVOKER, patuh RLS, lewati hari libur, tanpa duplikat).
+- Sertakan `supabase/seed.sql` berisi: 1 admin, 3 guru (1 wali kelas), 3 kelas, 40 siswa, beberapa mapel, jam pelajaran, jadwal, agenda, presensi, TP, asesmen, dan nilai contoh.
+- Buat diagram ERD (Mermaid) di `docs/ERD.md`.
+
+# 5. KEAMANAN (WAJIB)
+- Aktifkan RLS di SEMUA tabel. Default deny.
+- Helper SECURITY DEFINER: `is_admin()`, `is_my_assignment(assignment_id)`, `is_homeroom_of(class_id)`, `can_view_student(student_id)`.
+- Policy:
+  - Admin: akses penuh ke master data; baca semua data.
+  - Guru: baca/tulis hanya data dari penugasannya (schedules, agendas, attendances, learning_objectives, assessments, scores, student_notes buatannya).
+  - Wali kelas: baca-saja untuk data kelas perwaliannya.
+  - `school_periods`, `holidays`, `app_settings`: semua user login boleh baca; hanya admin yang boleh tulis.
+  - `audit_logs`: hanya admin yang boleh baca; tidak ada yang boleh UPDATE/DELETE.
+  - `notifications`: pengguna hanya melihat/menandai baca notifikasinya sendiri.
+- Service role key hanya di server. Semua input divalidasi dengan zod di server (Server Action/Route Handler), tidak hanya di client.
+- Autentikasi: pengguna baru wajib ganti password saat login pertama (`must_change_password`), kebijakan password minimal (panjang ≥ 10), rate limit pada endpoint login dan aksi sensitif, sesi aman (cookie httpOnly via `@supabase/ssr`).
+- Security headers di `next.config` (CSP yang wajar, X-Frame-Options, Referrer-Policy, Permissions-Policy).
+- Middleware: belum login → `/login`; guru tidak boleh membuka `/admin/*`; akun nonaktif ditolak.
+- Privasi data siswa: jangan log data pribadi ke konsol/layanan eksternal; ekspor hanya sesuai hak akses.
+- Bucket Storage privat; tanda tangan & logo diakses lewat signed URL.
+
+# 6. UI/UX: GLASSMORPHISM
+- Latar: gradien mesh lembut (ungu-biru-tosca) dengan blob blur; mode terang & gelap (toggle, simpan preferensi, hormati `prefers-color-scheme`).
+- Kartu/panel/sidebar/modal: `backdrop-blur-xl`, `bg-white/10–20`, border 1px `white/20`, `rounded-2xl`, shadow lembut.
+- **Keterbacaan**: kontras teks WCAG AA. Tabel data dan input memakai lapisan glass lebih solid. Sediakan fallback bila `backdrop-filter` tidak didukung atau pengguna memilih `prefers-reduced-transparency`/`prefers-reduced-motion`.
+- Komponen reusable: `GlassCard`, `GlassButton`, `GlassInput`, `GlassSelect`, `GlassModal`, `GlassTable`, `StatusBadge`, `EmptyState`, `Skeleton`, `ConfirmDialog`, `DataTable` (sortir, filter, paginasi).
+- Tipografi: Plus Jakarta Sans atau Inter.
+- Layout: sidebar (desktop), bottom nav/drawer (mobile). **Mobile-first**.
+- Warna status presensi selalu disertai label teks. Fokus keyboard terlihat jelas, label form tertaut, `aria-*` pada komponen interaktif.
+- Loading skeleton, toast, konfirmasi hapus, empty state informatif, halaman error/404 yang ramah, dan `error.tsx` + `loading.tsx` per segmen route.
+- Command palette (Ctrl/Cmd+K) untuk pencarian cepat siswa, kelas, dan halaman.
+- Performa: batasi `backdrop-filter` pada elemen berulang (baris tabel), gunakan Server Components sebisanya, paginasi sisi server untuk daftar besar, optimistic update pada presensi dan nilai, dan lazy-load grafik.
+- Aplikasi dapat dipasang (PWA): manifest, ikon, service worker dengan cache aset statis dan strategi network-first untuk data.
+- CSS cetak (`@media print`) untuk halaman yang akan dicetak.
+
+# 7. STRUKTUR ROUTE
+```
+/login   /ganti-password   /notifikasi
+/(guru)/dashboard
+/(guru)/jadwal
+/(guru)/agenda            /(guru)/agenda/[id]/presensi
+/(guru)/kehadiran
+/(guru)/penilaian         /(guru)/penilaian/[assignmentId]
+/(guru)/siswa/[id]        (profil siswa)
+/(guru)/wali-kelas        (leger, rekap gabungan; hanya wali kelas)
+/(admin)/admin/dashboard
+/(admin)/admin/guru       /admin/siswa (+ /impor)   /admin/kelas   /admin/mapel
+/(admin)/admin/penugasan  /admin/jam-pelajaran      /admin/hari-libur
+/(admin)/admin/jadwal     /admin/tahun-ajaran       /admin/rekap
+/(admin)/admin/pengaturan /admin/audit-log          /admin/cadangan
+```
+
+# 8. KUALITAS, PENGUJIAN & OPERASIONAL
+- Struktur kode: `src/app`, `src/components`, `src/features/<modul>` (actions, queries, schemas, components), `src/lib` (supabase, utils), `src/types` (tipe dari `supabase gen types`).
+- Unit test (Vitest) untuk fungsi perhitungan: persentase kehadiran, nilai akhir berbobot, ketercapaian TP, remedial, deteksi bentrok jadwal.
+- Test RLS (pgTAP atau skrip SQL) untuk: guru A tidak bisa membaca/mengubah data guru B; wali kelas hanya baca; guru tidak bisa mengubah data terkunci; hanya admin yang dapat membaca audit log.
+- E2E (Playwright) untuk alur kritis: login → buat jadwal → generate agenda → isi presensi → input nilai → ekspor.
+- CI GitHub Actions: lint, typecheck, unit test, build pada setiap pull request.
+- Penanganan error terpusat (hasil aksi berbentuk `{ ok, error }`), pesan error ramah dalam Bahasa Indonesia, dan error boundary. Siapkan hook opsional untuk Sentry (aktif bila DSN diisi).
+- Dokumentasi: `README.md` (setup lokal, environment, deploy Vercel, membuat admin pertama, cara menjalankan migration & seed), `docs/ARCHITECTURE.md`, `docs/ERD.md`, `docs/DECISIONS.md`, `CHANGELOG.md`.
+- Variabel environment: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SENTRY_DSN` (opsional).
+
+# 9. TAHAPAN KERJA
+1. Inisialisasi project, tooling (ESLint/Prettier/Vitest/Playwright/CI), design tokens glassmorphism, komponen UI dasar, layout (sidebar, mobile nav, dark mode).
+2. Migration SQL (skema, RLS, trigger audit & penguncian, function/view rekap), seed, ERD, dan instruksi menjalankannya di Supabase.
+3. Auth: login, logout, ganti password wajib, middleware, guard peran, rate limit, security headers.
+4. Modul Admin: master data, akun guru, penugasan, wali kelas, jam pelajaran, hari libur, impor siswa, pengaturan sekolah.
+5. Modul Guru: Jadwal Mengajar (CRUD, grid mingguan, validasi bentrok, salin antar semester).
+6. Modul Guru: Agenda (termasuk generate dari jadwal), lalu Presensi (termasuk mode offline/PWA), lalu rekap kehadiran.
+7. Modul Guru: TP, asesmen, input nilai (spreadsheet-like), remedial/pengayaan, bobot, rekap & deskripsi capaian.
+8. Catatan perkembangan, profil siswa, leger & rekap wali kelas.
+9. Ekspor Excel/PDF (kop, tanda tangan, CSS cetak).
+10. Dashboard guru dan admin, notifikasi dalam aplikasi.
+11. Admin: penguncian periode, arsip tahun ajaran, audit log viewer, cadangan data.
+12. QA & hardening: uji RLS, unit test, E2E, uji responsif (360/768/1280px), aksesibilitas (keyboard, kontras, screen reader dasar), performa (Lighthouse mobile ≥ 85), dan penanganan error.
+13. Dokumentasi akhir, `CHANGELOG`, dan panduan deploy Vercel.
+
+# 10. KRITERIA SELESAI
+- Guru dapat menginput jadwal sendiri; sistem menolak jadwal yang bentrok; "Buat agenda dari jadwal" membuat agenda sesuai hari/jam, melewati hari libur, dan tidak duplikat jika dijalankan dua kali.
+- Presensi satu kelas dapat diisi < 1 menit, tetap bisa dipakai saat offline, dan tersinkron otomatis.
+- Nilai formatif/sumatif, remedial, bobot, dan ketercapaian TP terhitung akurat (terbukti oleh unit test).
+- Wali kelas dapat melihat leger dan rekap kelasnya tanpa bisa mengubah data guru lain.
+- Admin dapat mengimpor siswa dari Excel, mengunci periode, dan melihat audit log; perubahan nilai/presensi tercatat.
+- RLS terbukti membatasi data antar guru (lulus test RLS).
+- Ekspor Excel/PDF berfungsi dengan kop dan tanda tangan sesuai pengaturan.
+- CI hijau; `npm run build` sukses tanpa error; siap deploy ke Vercel; dokumentasi lengkap.
+
+## TAMBAHAN: Login Google
+- Auth: aktifkan provider Google di Supabase Auth, selain email + password. Pendaftaran mandiri dinonaktifkan ("Allow new users to sign up" = off).
+- Admin membuat akun guru lewat Admin API (server saja) dengan `createUser({ email, email_confirm: true })`. Untuk guru ber-Gmail tidak perlu password. Login Google pertama menautkan akun lewat email terverifikasi.
+- Jika email belum terdaftar, tampilkan pesan "Email Anda belum terdaftar. Hubungi admin." dan jangan membuat akun.
+- Halaman login: tombol "Masuk dengan Google" (utama) dan form email + password (cadangan).
+- `must_change_password` hanya berlaku untuk akun ber-password.
+- Middleware tetap menolak akun dengan `is_active = false`.
+- README: langkah membuat OAuth client di Google Cloud Console, mengisi client ID/secret di dashboard Supabase, dan mendaftarkan redirect URL (produksi Vercel + localhost).
+
+## TAMBAHAN: Retensi & hapus data per periode (Admin)
+- Tidak ada penghapusan otomatis; data disimpan sampai admin menghapusnya.
+- Fitur "Hapus data periode": hanya untuk tahun ajaran yang sudah diarsipkan, wajib mengetik nama periode untuk konfirmasi, dicatat di audit log, dan hanya aktif jika ekspor cadangan periode itu sudah pernah diunduh (fitur cadangan dibangun lebih dulu).
+- Implementasi lewat SQL function SECURITY DEFINER yang hanya bisa dipanggil admin dan berjalan dalam satu transaksi.
+- Tambahkan ke Tahap 11 dan uji di test RLS (guru tidak boleh memanggil function ini).
+
+# CARA KERJA
+Sebelum menulis kode, tampilkan rencana singkat: struktur folder, daftar tabel & relasi, dan daftar route. Tunggu konfirmasi saya, lalu mulai dari Tahap 1. Setelah tiap tahap, beri ringkasan: apa yang selesai, cara mengujinya, dan apa yang akan dikerjakan berikutnya.

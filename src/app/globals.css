@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-solid-bg: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border-subtle: rgba(226, 232, 240, 0.8);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+}
+
+.dark {
+  --background: #090d16;
+  --foreground: #f8fafc;
+  --glass-bg: rgba(15, 23, 42, 0.65);
+  --glass-solid-bg: rgba(15, 23, 42, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-subtle: rgba(51, 65, 85, 0.6);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  min-height: 100vh;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Background mesh gradient */
+.mesh-gradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(20, 184, 166, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(168, 85, 247, 0.12) 0px, transparent 50%);
+}
+
+.dark .mesh-gradient {
+  background: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.22) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.18) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(20, 184, 166, 0.18) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(168, 85, 247, 0.18) 0px, transparent 50%);
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-solid {
+  background: var(--glass-solid-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Accessibility: Fallback for reduced transparency */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel,
+  .glass-solid {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--background) !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+  .dark .glass-panel,
+  .dark .glass-solid {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+  }
+}
+
+/* Accessibility: Fallback for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .mesh-gradient,
+  header,
+  aside,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .glass-panel,
+  .glass-solid {
+    backdrop-filter: none !important;
+    background: transparent !important;
+    border: 1px solid #000 !important;
+    box-shadow: none !important;
+  }
+}
