@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -38,7 +39,10 @@ export default function RootLayout({
     <html lang="id" suppressHydrationWarning className={jakarta.variable}>
       <body className="antialiased font-sans">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <ServiceWorkerRegister />
+            {children}
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>
