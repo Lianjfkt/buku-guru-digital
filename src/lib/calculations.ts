@@ -48,3 +48,27 @@ export function isJadwalBentrok(
   return !(jadwalA.end < jadwalB.start || jadwalA.start > jadwalB.end);
 }
 
+export function calculateFinalScore(
+  rawScore: number,
+  remedialScore: number | null | undefined,
+  kktp: number = 75,
+  rule: 'kktp' | 'actual' = 'kktp'
+): number {
+  if (remedialScore === null || remedialScore === undefined) return rawScore;
+  if (rule === 'kktp') {
+    return Math.min(remedialScore, kktp);
+  }
+  return remedialScore;
+}
+
+export function getAchievementLevel(
+  score: number,
+  kktp: number = 75
+): { level: string; variant: 'success' | 'primary' | 'warning' | 'danger' } {
+  if (score >= 90) return { level: 'Sangat Tercapai', variant: 'success' };
+  if (score >= kktp) return { level: 'Tercapai', variant: 'primary' };
+  if (score >= 60) return { level: 'Cukup', variant: 'warning' };
+  return { level: 'Belum Tercapai', variant: 'danger' };
+}
+
+
