@@ -160,3 +160,4 @@ CREATE TRIGGER tr_guard_attendances BEFORE INSERT OR UPDATE OR DELETE ON attenda
 
 CREATE TRIGGER tr_guard_scores BEFORE INSERT OR UPDATE OR DELETE ON scores
   FOR EACH ROW EXECUTE FUNCTION guard_period_locking();
+

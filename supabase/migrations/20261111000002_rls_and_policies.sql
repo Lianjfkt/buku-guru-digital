@@ -418,3 +418,4 @@ CREATE POLICY "audit_logs_select_admin" ON audit_logs
 CREATE POLICY "audit_logs_insert_authenticated" ON audit_logs
   FOR INSERT TO authenticated
   WITH CHECK (true);
+

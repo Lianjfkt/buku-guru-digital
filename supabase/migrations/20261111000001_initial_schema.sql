@@ -345,3 +345,4 @@ CREATE TRIGGER tr_assessments_updated_at BEFORE UPDATE ON assessments FOR EACH R
 CREATE TRIGGER tr_scores_updated_at BEFORE UPDATE ON scores FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER tr_student_notes_updated_at BEFORE UPDATE ON student_notes FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER tr_app_settings_updated_at BEFORE UPDATE ON app_settings FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+

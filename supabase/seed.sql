@@ -199,3 +199,4 @@ SELECT
 FROM students
 WHERE class_id = 'd0000000-0000-0000-0000-000000000001'
 ON CONFLICT (assessment_id, student_id) DO NOTHING;
+

@@ -47,3 +47,4 @@ export function isJadwalBentrok(
 ): boolean {
   return !(jadwalA.end < jadwalB.start || jadwalA.start > jadwalB.end);
 }
+
